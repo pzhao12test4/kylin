@@ -24,8 +24,6 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.kylin.common.KylinConfig;
@@ -34,13 +32,10 @@ import org.apache.kylin.cube.CubeInstance;
 import org.apache.kylin.cube.CubeManager;
 import org.apache.kylin.cube.CubeSegment;
 import org.apache.kylin.cube.CubeUpdate;
-import org.apache.kylin.cube.cuboid.Cuboid;
 import org.apache.kylin.cube.cuboid.CuboidCLI;
-import org.apache.kylin.cube.cuboid.CuboidScheduler;
 import org.apache.kylin.cube.model.CubeDesc;
 import org.apache.kylin.engine.EngineFactory;
 import org.apache.kylin.engine.mr.CubingJob;
-import org.apache.kylin.engine.mr.common.CuboidRecommenderUtil;
 import org.apache.kylin.job.exception.JobException;
 import org.apache.kylin.job.execution.DefaultChainedExecutable;
 import org.apache.kylin.job.execution.ExecutableState;
@@ -60,8 +55,6 @@ import org.apache.kylin.rest.exception.ForbiddenException;
 import org.apache.kylin.rest.msg.Message;
 import org.apache.kylin.rest.msg.MsgPicker;
 import org.apache.kylin.rest.request.MetricsRequest;
-import org.apache.kylin.rest.response.CuboidTreeResponse;
-import org.apache.kylin.rest.response.CuboidTreeResponse.NodeInfo;
 import org.apache.kylin.rest.response.HBaseResponse;
 import org.apache.kylin.rest.response.MetricsResponse;
 import org.apache.kylin.rest.security.AclPermission;
@@ -79,8 +72,6 @@ import org.springframework.stereotype.Component;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 
 /**
  * Stateless & lightweight service facade of cube management functions.
@@ -111,18 +102,6 @@ public class CubeService extends BasicService implements InitializingBean {
 
     @Autowired
     private AclEvaluate aclEvaluate;
-
-    public boolean isCubeNameVaildate(final String cubeName) {
-        if (StringUtils.isEmpty(cubeName) || !StringUtils.containsOnly(cubeName, VALID_CUBENAME)) {
-            return false;
-        }
-        for (CubeInstance cubeInstance : getCubeManager().listAllCubes()) {
-            if (cubeName.equalsIgnoreCase(cubeInstance.getName())) {
-                return false;
-            }
-        }
-        return true;
-    }
 
     public List<CubeInstance> listAllCubes(final String cubeName, final String projectName, final String modelName,
             boolean exactMatch) {
@@ -324,13 +303,6 @@ public class CubeService extends BasicService implements InitializingBean {
         Message msg = MsgPicker.getMsg();
 
         String cubeName = cube.getName();
-
-        final List<CubingJob> cubingJobs = jobService.listJobsByRealizationName(cubeName, null, EnumSet
-                .of(ExecutableState.READY, ExecutableState.RUNNING, ExecutableState.ERROR, ExecutableState.STOPPED));
-        if (!cubingJobs.isEmpty()) {
-            throw new BadRequestException(String.format(msg.getDISCARD_JOB_FIRST(), cubeName));
-        }
-
         RealizationStatusEnum ostatus = cube.getStatus();
         if (null != ostatus && !RealizationStatusEnum.DISABLED.equals(ostatus)) {
             throw new BadRequestException(String.format(msg.getPURGE_NOT_DISABLED_CUBE(), cubeName, ostatus));
@@ -534,8 +506,6 @@ public class CubeService extends BasicService implements InitializingBean {
 
         CubeUpdate update = new CubeUpdate(cube);
         update.setToRemoveSegs(cube.getSegments().toArray(new CubeSegment[cube.getSegments().size()]));
-        update.setCuboids(Maps.<Long, Long> newHashMap());
-        update.setCuboidsRecommend(Sets.<Long> newHashSet());
         CubeManager.getInstance(getConfig()).updateCube(update);
     }
 
@@ -632,7 +602,7 @@ public class CubeService extends BasicService implements InitializingBean {
         }
 
         if (!isDraft) {
-            DataModelDesc modelDesc = modelService.getDataModelManager().getDataModelDesc(desc.getModelName());
+            DataModelDesc modelDesc = modelService.getMetadataManager().getDataModelDesc(desc.getModelName());
             if (modelDesc == null) {
                 throw new BadRequestException(String.format(msg.getMODEL_NOT_FOUND(), desc.getModelName()));
             }
@@ -767,85 +737,5 @@ public class CubeService extends BasicService implements InitializingBean {
                     htableInfoCache.invalidate(k);
             }
         }
-    }
-
-    public CuboidTreeResponse getCuboidTreeResponse(CuboidScheduler cuboidScheduler, Map<Long, Long> rowCountMap,
-            Map<Long, Long> hitFrequencyMap, Map<Long, Long> queryMatchMap, Set<Long> currentCuboidSet) {
-        long baseCuboidId = cuboidScheduler.getBaseCuboidId();
-        int dimensionCount = Long.bitCount(baseCuboidId);
-
-        // get cube query count total
-        long cubeQueryCount = 0L;
-        if (hitFrequencyMap != null) {
-            for (long queryCount : hitFrequencyMap.values()) {
-                cubeQueryCount += queryCount;
-            }
-        }
-
-        NodeInfo root = generateNodeInfo(baseCuboidId, dimensionCount, cubeQueryCount, rowCountMap, hitFrequencyMap,
-                queryMatchMap, currentCuboidSet);
-
-        List<NodeInfo> nodeQueue = Lists.newLinkedList();
-        nodeQueue.add(root);
-        while (!nodeQueue.isEmpty()) {
-            NodeInfo parentNode = nodeQueue.remove(0);
-            for (long childId : cuboidScheduler.getSpanningCuboid(parentNode.getId())) {
-                NodeInfo childNode = generateNodeInfo(childId, dimensionCount, cubeQueryCount, rowCountMap,
-                        hitFrequencyMap, queryMatchMap, currentCuboidSet);
-                parentNode.addChild(childNode);
-                nodeQueue.add(childNode);
-            }
-        }
-
-        CuboidTreeResponse result = new CuboidTreeResponse();
-        result.setRoot(root);
-        return result;
-    }
-
-    private NodeInfo generateNodeInfo(long cuboidId, int dimensionCount, long cubeQueryCount,
-            Map<Long, Long> rowCountMap, Map<Long, Long> hitFrequencyMap, Map<Long, Long> queryMatchMap,
-            Set<Long> currentCuboidSet) {
-        Long queryCount = hitFrequencyMap == null || hitFrequencyMap.get(cuboidId) == null ? 0L
-                : hitFrequencyMap.get(cuboidId);
-        float queryRate = cubeQueryCount <= 0 ? 0 : queryCount.floatValue() / cubeQueryCount;
-        long queryExactlyMatchCount = queryMatchMap == null || queryMatchMap.get(cuboidId) == null ? 0L
-                : queryMatchMap.get(cuboidId);
-        boolean ifExist = currentCuboidSet.contains(cuboidId);
-        long rowCount = rowCountMap == null ? 0L : rowCountMap.get(cuboidId);
-
-        NodeInfo node = new NodeInfo();
-        node.setId(cuboidId);
-        node.setName(Cuboid.getDisplayName(cuboidId, dimensionCount));
-        node.setQueryCount(queryCount);
-        node.setQueryRate(queryRate);
-        node.setExactlyMatchCount(queryExactlyMatchCount);
-        node.setExisted(ifExist);
-        node.setRowCount(rowCount);
-        return node;
-    }
-
-    /** cube planner services */
-    public Map<Long, Long> formatQueryCount(List<List<String>> orgQueryCount) {
-        Map<Long, Long> formattedQueryCount = Maps.newLinkedHashMap();
-        for (List<String> hit : orgQueryCount) {
-            formattedQueryCount.put(Long.parseLong(hit.get(0)), (long) Double.parseDouble(hit.get(1)));
-        }
-        return formattedQueryCount;
-    }
-
-    public Map<Long, Map<Long, Long>> formatRollingUpCount(List<List<String>> orgRollingUpCount) {
-        Map<Long, Map<Long, Long>> formattedRollingUpCount = Maps.newLinkedHashMap();
-        for (List<String> rollingUp : orgRollingUpCount) {
-            Map<Long, Long> childMap = Maps.newLinkedHashMap();
-            childMap.put(Long.parseLong(rollingUp.get(1)), (long) Double.parseDouble(rollingUp.get(2)));
-            formattedRollingUpCount.put(Long.parseLong(rollingUp.get(0)), childMap);
-        }
-        return formattedRollingUpCount;
-    }
-
-    @PreAuthorize(Constant.ACCESS_HAS_ROLE_ADMIN + " or hasPermission(#cube, 'ADMINISTRATION')")
-    public Map<Long, Long> getRecommendCuboidStatistics(CubeInstance cube, Map<Long, Long> hitFrequencyMap,
-            Map<Long, Map<Long, Long>> rollingUpCountSourceMap) throws IOException {
-        return CuboidRecommenderUtil.getRecommendCuboidList(cube, hitFrequencyMap, rollingUpCountSourceMap);
     }
 }

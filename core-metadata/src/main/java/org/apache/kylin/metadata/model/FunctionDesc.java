@@ -136,7 +136,9 @@ public class FunctionDesc implements Serializable {
     }
 
     public String getRewriteFieldName() {
-        if (isCount()) {
+        if (isSum()) {
+            return getParameter().getValue();
+        } else if (isCount()) {
             return "_KY_" + "COUNT__"; // ignores parameter, count(*), count(1), count(col) are all the same
         } else if (isCountDistinct()) {
             return "_KY_" + getFullExpressionInAlphabetOrder().replaceAll("[(),. ]", "_");
@@ -146,7 +148,7 @@ public class FunctionDesc implements Serializable {
     }
 
     public DataType getRewriteFieldType() {
-        if (isMax() || isMin())
+        if (isSum() || isMax() || isMin())
             return parameter.getColRefs().get(0).getType();
         else if (getMeasureType() instanceof BasicMeasureType)
             return returnDataType;
@@ -233,14 +235,6 @@ public class FunctionDesc implements Serializable {
 
     public ParameterDesc getParameter() {
         return parameter;
-    }
-
-    public void setParameter(ParameterDesc parameter) {
-        this.parameter = parameter;
-    }
-
-    public void setExpression(String expression) {
-        this.expression = expression;
     }
 
     public int getParameterCount() {

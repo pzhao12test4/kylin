@@ -79,7 +79,7 @@ public class GTSimpleMemStore implements IGTStore {
     private class Writer implements IGTWriter {
         @Override
         public void write(GTRecord r) throws IOException {
-            ByteArray byteArray = r.exportColumns(info.getAllColumns());
+            ByteArray byteArray = r.exportColumns(info.getAllColumns()).copy();
             assert byteArray.offset() == 0;
             assert byteArray.array().length == byteArray.length();
             rowList.add(byteArray.array());
@@ -98,7 +98,6 @@ public class GTSimpleMemStore implements IGTStore {
     public IGTScanner scan(GTScanRequest scanRequest) {
 
         return new IGTScanner() {
-            @SuppressWarnings("unused")
             long count;
 
             @Override

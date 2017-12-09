@@ -61,8 +61,4 @@ public class EngineFactory {
         return batchEngine(mergeSegment).createBatchMergeJob(mergeSegment, submitter);
     }
 
-    /** Optimize a segment based on the cuboid recommend list produced by the cube planner. */
-    public static DefaultChainedExecutable createBatchOptimizeJob(CubeSegment optimizeSegment, String submitter) {
-        return batchEngine(optimizeSegment).createBatchOptimizeJob(optimizeSegment, submitter);
-    }
 }

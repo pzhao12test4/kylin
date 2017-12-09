@@ -28,6 +28,7 @@ import java.util.NavigableSet;
 
 import org.apache.kylin.common.KylinConfig;
 import org.apache.kylin.common.persistence.ResourceStore;
+import org.apache.kylin.common.util.JsonUtil;
 import org.apache.kylin.common.util.LocalFileMetadataTestCase;
 import org.apache.kylin.cube.model.CubeDesc;
 import org.apache.kylin.metadata.model.SegmentRange;
@@ -61,7 +62,7 @@ public class CubeManagerTest extends LocalFileMetadataTestCase {
 
         CubeInstance cube = CubeManager.getInstance(getTestConfig()).getCube("test_kylin_cube_without_slr_ready");
         CubeDesc desc = cube.getDescriptor();
-        //System.out.println(JsonUtil.writeValueAsIndentString(desc));
+        System.out.println(JsonUtil.writeValueAsIndentString(desc));
 
         String signature = desc.calculateSignature();
         desc.getModel().getPartitionDesc().setPartitionDateColumn("test_column");
@@ -303,112 +304,6 @@ public class CubeManagerTest extends LocalFileMetadataTestCase {
         assertTrue(mergedSeg != null);
         assertTrue((Long) mergedSeg.start.v == 0 && (Long) mergedSeg.end.v == 8000);
     }
-
-    @Test
-    public void testAutoMergeWithVolatileRange() throws Exception {
-        CubeManager mgr = CubeManager.getInstance(getTestConfig());
-        CubeInstance cube = mgr.getCube("test_kylin_cube_with_slr_empty");
-
-        cube.getDescriptor().setAutoMergeTimeRanges(new long[] { 2000, 6000 });
-
-        mgr.updateCube(new CubeUpdate(cube));
-
-        assertTrue(cube.needAutoMerge());
-
-        // no segment at first
-        assertEquals(0, cube.getSegments().size());
-
-        // append first
-        CubeSegment seg1 = mgr.appendSegment(cube, new TSRange(0L, 1000L));
-        seg1.setStatus(SegmentStatusEnum.READY);
-
-        CubeSegment seg3 = mgr.appendSegment(cube, new TSRange(2000L, 4000L));
-        seg3.setStatus(SegmentStatusEnum.READY);
-
-        assertEquals(2, cube.getSegments().size());
-
-        SegmentRange mergedSeg = cube.autoMergeCubeSegments();
-
-        assertTrue(mergedSeg == null);
-
-        assertEquals(2, cube.getSegments().size());
-
-        // append a new seg
-
-        CubeSegment seg4 = mgr.appendSegment(cube, new TSRange(4000L, 8000L));
-        seg4.setStatus(SegmentStatusEnum.READY);
-
-        assertEquals(3, cube.getSegments().size());
-
-        cube.getDescriptor().setVolatileRange(10000);
-
-        mergedSeg = cube.autoMergeCubeSegments();
-
-        assertTrue(mergedSeg == null);
-
-        //will merge after change the volatile_range
-
-        cube.getDescriptor().setVolatileRange(0);
-
-        mergedSeg = cube.autoMergeCubeSegments();
-
-        assertTrue(mergedSeg != null);
-
-        assertTrue((Long) mergedSeg.start.v == 2000 && (Long) mergedSeg.end.v == 8000);
-
-        // fill the gap
-
-        CubeSegment seg2 = mgr.appendSegment(cube, new TSRange(1000L, 2000L));
-        seg2.setStatus(SegmentStatusEnum.READY);
-
-        assertEquals(4, cube.getSegments().size());
-
-        cube.getDescriptor().setVolatileRange(10000);
-
-        mergedSeg = cube.autoMergeCubeSegments();
-
-        assertTrue(mergedSeg == null);
-
-        //will merge after change the volatile_range
-        cube.getDescriptor().setVolatileRange(0);
-
-        mergedSeg = cube.autoMergeCubeSegments();
-
-        assertTrue(mergedSeg != null);
-
-        assertTrue((Long) mergedSeg.start.v == 0 && (Long) mergedSeg.end.v == 8000);
-
-        cube.getDescriptor().setVolatileRange(1000);
-
-        mergedSeg = cube.autoMergeCubeSegments();
-
-        assertTrue(mergedSeg != null);
-
-        assertTrue((Long) mergedSeg.start.v == 0 && (Long) mergedSeg.end.v == 2000);
-
-    }
-
-    @Test
-    public void testGetCubeNameWithNamespace() {
-        System.setProperty("kylin.storage.hbase.table-name-prefix", "HELLO_");
-        try {
-            CubeManager mgr = CubeManager.getInstance(getTestConfig());
-            String tablename = mgr.generateStorageLocation();
-            assertTrue(tablename.startsWith("HELLO_"));
-        } finally {
-            System.clearProperty("kylin.storage.hbase.table-name-prefix");
-        }
-
-        System.setProperty("kylin.storage.hbase.namespace", "MYSPACE");
-        try {
-            CubeManager mgr = CubeManager.getInstance(getTestConfig());
-            String tablename = mgr.generateStorageLocation();
-            assertTrue(tablename.startsWith("MYSPACE:"));
-        } finally {
-            System.clearProperty("kylin.storage.hbase.namespace");
-        }
-    }
-
 
     public CubeDescManager getCubeDescManager() {
         return CubeDescManager.getInstance(getTestConfig());

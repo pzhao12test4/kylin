@@ -44,8 +44,6 @@ import com.google.common.collect.Maps;
  */
 public abstract class AbstractExecutable implements Executable, Idempotent {
 
-    public static final Integer DEFAULT_PRIORITY = 10;
-
     protected static final String SUBMITTER = "submitter";
     protected static final String NOTIFY_LIST = "notify_list";
     protected static final String START_TIME = "startTime";
@@ -384,18 +382,6 @@ public abstract class AbstractExecutable implements Executable, Idempotent {
 
     public final long getDuration() {
         return getDuration(getStartTime(), getEndTime(), getInterruptTime());
-    }
-
-    public boolean isReady() {
-        final Output output = getManager().getOutput(id);
-        return output.getState() == ExecutableState.READY;
-    }
-
-    /**
-     * The larger the value, the higher priority
-     * */
-    public int getDefaultPriority() {
-        return DEFAULT_PRIORITY;
     }
 
     /*

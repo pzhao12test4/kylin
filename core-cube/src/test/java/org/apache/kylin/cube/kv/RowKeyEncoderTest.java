@@ -29,7 +29,7 @@ import org.apache.kylin.cube.CubeInstance;
 import org.apache.kylin.cube.CubeManager;
 import org.apache.kylin.cube.cuboid.Cuboid;
 import org.apache.kylin.cube.model.CubeDesc;
-import org.apache.kylin.metadata.model.DataModelManager;
+import org.apache.kylin.metadata.MetadataManager;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -40,7 +40,7 @@ public class RowKeyEncoderTest extends LocalFileMetadataTestCase {
     @Before
     public void setUp() throws Exception {
         this.createTestMetadata();
-        DataModelManager.clearCache();
+        MetadataManager.clearCache();
     }
 
     @After
@@ -66,7 +66,7 @@ public class RowKeyEncoderTest extends LocalFileMetadataTestCase {
         data[7] = "15";
 
         long baseCuboidId = Cuboid.getBaseCuboidId(cubeDesc);
-        Cuboid baseCuboid = Cuboid.findForMandatory(cubeDesc, baseCuboidId);
+        Cuboid baseCuboid = Cuboid.findById(cube, baseCuboidId);
         RowKeyEncoder rowKeyEncoder = new RowKeyEncoder(cube.getFirstSegment(), baseCuboid);
 
         byte[] encodedKey = rowKeyEncoder.encode(data);
@@ -97,7 +97,7 @@ public class RowKeyEncoderTest extends LocalFileMetadataTestCase {
         data[8] = "15";
 
         long baseCuboidId = Cuboid.getBaseCuboidId(cubeDesc);
-        Cuboid baseCuboid = Cuboid.findForMandatory(cubeDesc, baseCuboidId);
+        Cuboid baseCuboid = Cuboid.findById(cube, baseCuboidId);
         RowKeyEncoder rowKeyEncoder = new RowKeyEncoder(cube.getFirstSegment(), baseCuboid);
 
         byte[] encodedKey = rowKeyEncoder.encode(data);
@@ -133,7 +133,7 @@ public class RowKeyEncoderTest extends LocalFileMetadataTestCase {
         data[8] = null;
 
         long baseCuboidId = Cuboid.getBaseCuboidId(cubeDesc);
-        Cuboid baseCuboid = Cuboid.findForMandatory(cubeDesc, baseCuboidId);
+        Cuboid baseCuboid = Cuboid.findById(cube, baseCuboidId);
         RowKeyEncoder rowKeyEncoder = new RowKeyEncoder(cube.getFirstSegment(), baseCuboid);
 
         byte[] encodedKey = rowKeyEncoder.encode(data);

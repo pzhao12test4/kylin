@@ -371,17 +371,8 @@ public class QueryService extends BasicService {
         }
     }
 
-    public SQLResponse queryWithoutSecure(SQLRequest sqlRequest) {
-        return doQueryWithCache(sqlRequest, false);
-    }
-
     public SQLResponse doQueryWithCache(SQLRequest sqlRequest) {
-        return doQueryWithCache(sqlRequest, true);
-    }
-
-    public SQLResponse doQueryWithCache(SQLRequest sqlRequest, boolean secureEnabled) {
         Message msg = MsgPicker.getMsg();
-        sqlRequest.setUsername(getUserName());
 
         KylinConfig kylinConfig = KylinConfig.getInstanceFromEnv();
         String serverMode = kylinConfig.getServerMode();
@@ -408,9 +399,6 @@ public class QueryService extends BasicService {
 
             long startTime = System.currentTimeMillis();
 
-            // force clear the query context before a new query
-            OLAPContext.clearThreadLocalContexts();
-
             SQLResponse sqlResponse = null;
             boolean queryCacheEnabled = checkCondition(kylinConfig.isQueryCacheEnabled(),
                     "query cache disabled in KylinConfig") && //
@@ -424,7 +412,7 @@ public class QueryService extends BasicService {
                 if (null == sqlResponse) {
                     if (isSelect) {
                         sqlResponse = query(sqlRequest);
-                    } else if (kylinConfig.isPushDownEnabled() && kylinConfig.isPushDownUpdateEnabled()) {
+                    } else if (kylinConfig.isPushDownEnabled()) {
                         sqlResponse = update(sqlRequest);
                     } else {
                         logger.debug(
@@ -464,17 +452,15 @@ public class QueryService extends BasicService {
                     sqlResponse.setTotalScanBytes(0);
                 }
 
-                checkQueryAuth(sqlResponse, project, secureEnabled);
+                checkQueryAuth(sqlResponse, project);
 
             } catch (Throwable e) { // calcite may throw AssertError
                 logger.error("Exception while executing query", e);
-                String errMsg = makeErrorMsgUserFriendly(e);
+                String errMsg = QueryUtil.makeErrorMsgUserFriendly(e);
 
                 sqlResponse = new SQLResponse(null, null, 0, true, errMsg);
-                sqlResponse.setThrowable(e.getCause() == null ? e : ExceptionUtils.getRootCause(e));
                 sqlResponse.setTotalScanCount(queryContext.getScannedRows());
                 sqlResponse.setTotalScanBytes(queryContext.getScannedBytes());
-                sqlResponse.setCubeSegmentStatisticsList(queryContext.getCubeSegmentStatisticsResultList());
 
                 if (queryCacheEnabled && e.getCause() != null
                         && ExceptionUtils.getRootCause(e) instanceof ResourceLimitExceededException) {
@@ -499,14 +485,6 @@ public class QueryService extends BasicService {
         }
     }
 
-    private String getUserName() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        if (StringUtils.isEmpty(username)) {
-            username = "";
-        }
-        return username;
-    }
-
     public SQLResponse searchQueryInCache(SQLRequest sqlRequest) {
         SQLResponse response = null;
         Cache exceptionCache = cacheManager.getCache(EXCEPTION_QUERY_CACHE);
@@ -526,9 +504,8 @@ public class QueryService extends BasicService {
         return response;
     }
 
-    protected void checkQueryAuth(SQLResponse sqlResponse, String project, boolean secureEnabled)
-            throws AccessDeniedException {
-        if (!sqlResponse.getIsException() && KylinConfig.getInstanceFromEnv().isQuerySecureEnabled() && secureEnabled) {
+    protected void checkQueryAuth(SQLResponse sqlResponse, String project) throws AccessDeniedException {
+        if (!sqlResponse.getIsException() && KylinConfig.getInstanceFromEnv().isQuerySecureEnabled()) {
             checkAuthorization(sqlResponse, project);
         }
     }
@@ -569,6 +546,8 @@ public class QueryService extends BasicService {
             parameters.put(OLAPContext.PRM_USER_AUTHEN_INFO, userInfo);
             parameters.put(OLAPContext.PRM_ACCEPT_PARTIAL_RESULT, String.valueOf(sqlRequest.isAcceptPartial()));
             OLAPContext.setParameters(parameters);
+            // force clear the query context before a new query
+            OLAPContext.clearThreadLocalContexts();
 
             return execute(correctedSql, sqlRequest, conn);
 
@@ -722,9 +701,8 @@ public class QueryService extends BasicService {
 
         ProjectInstance projectInstance = getProjectManager().getProject(project);
         for (String modelName : projectInstance.getModels()) {
-
-            DataModelDesc dataModelDesc = modelService.getModel(modelName, project);
-            if (dataModelDesc != null && !dataModelDesc.isDraft()) {
+            DataModelDesc dataModelDesc = modelService.listAllModels(modelName, project, true).get(0);
+            if (!dataModelDesc.isDraft()) {
 
                 // update table type: FACT
                 for (TableRef factTable : dataModelDesc.getFactTables()) {
@@ -826,25 +804,14 @@ public class QueryService extends BasicService {
 
         try {
 
-            // special case for prepare query.
+            // special case for prepare query. 
             if (BackdoorToggles.getPrepareOnly()) {
                 return getPrepareOnlySqlResponse(correctedSql, conn, isPushDown, results, columnMetas);
             }
 
-            if (isPrepareStatementWithParams(sqlRequest)) {
-
-                stat = conn.prepareStatement(correctedSql); // to be closed in the finally
-                PreparedStatement prepared = (PreparedStatement) stat;
-                processStatementAttr(prepared, sqlRequest);
-                for (int i = 0; i < ((PrepareSqlRequest) sqlRequest).getParams().length; i++) {
-                    setParam(prepared, i + 1, ((PrepareSqlRequest) sqlRequest).getParams()[i]);
-                }
-                resultSet = prepared.executeQuery();
-            } else {
-                stat = conn.createStatement();
-                processStatementAttr(stat, sqlRequest);
-                resultSet = stat.executeQuery(correctedSql);
-            }
+            stat = conn.createStatement();
+            processStatementAttr(stat, sqlRequest);
+            resultSet = stat.executeQuery(correctedSql);
 
             ResultSetMetaData metaData = resultSet.getMetaData();
             int columnCount = metaData.getColumnCount();
@@ -894,10 +861,6 @@ public class QueryService extends BasicService {
         return buildSqlResponse(isPushDown, results, columnMetas);
     }
 
-    protected String makeErrorMsgUserFriendly(Throwable e) {
-        return QueryUtil.makeErrorMsgUserFriendly(e);
-    }
-
     private SQLResponse getPrepareOnlySqlResponse(String correctedSql, Connection conn, Boolean isPushDown,
             List<List<String>> results, List<SelectedColumnMeta> columnMetas) throws SQLException {
 
@@ -943,13 +906,6 @@ public class QueryService extends BasicService {
         return buildSqlResponse(isPushDown, results, columnMetas);
     }
 
-    private boolean isPrepareStatementWithParams(SQLRequest sqlRequest) {
-        if (sqlRequest instanceof PrepareSqlRequest && ((PrepareSqlRequest) sqlRequest).getParams() != null
-                && ((PrepareSqlRequest) sqlRequest).getParams().length > 0)
-            return true;
-        return false;
-    }
-
     private SQLResponse buildSqlResponse(Boolean isPushDown, List<List<String>> results,
             List<SelectedColumnMeta> columnMetas) {
 
@@ -958,8 +914,6 @@ public class QueryService extends BasicService {
         StringBuilder logSb = new StringBuilder("Processed rows for each storageContext: ");
         if (OLAPContext.getThreadLocalContexts() != null) { // contexts can be null in case of 'explain plan for'
             for (OLAPContext ctx : OLAPContext.getThreadLocalContexts()) {
-                String realizationName = "NULL";
-                int realizationType = -1;
                 if (ctx.realization != null) {
                     isPartialResult |= ctx.storageContext.isPartialResultReturned();
                     if (cubeSb.length() > 0) {
@@ -967,11 +921,7 @@ public class QueryService extends BasicService {
                     }
                     cubeSb.append(ctx.realization.getCanonicalName());
                     logSb.append(ctx.storageContext.getProcessedRowCount()).append(" ");
-
-                    realizationName = ctx.realization.getName();
-                    realizationType = ctx.realization.getStorageType();
                 }
-                QueryContext.current().setContextRealization(ctx.id, realizationName, realizationType);
             }
         }
         logger.info(logSb.toString());
@@ -980,7 +930,6 @@ public class QueryService extends BasicService {
                 isPushDown);
         response.setTotalScanCount(QueryContext.current().getScannedRows());
         response.setTotalScanBytes(QueryContext.current().getScannedBytes());
-        response.setCubeSegmentStatisticsList(QueryContext.current().getCubeSegmentStatisticsResultList());
         return response;
     }
 
@@ -989,6 +938,7 @@ public class QueryService extends BasicService {
      * @param param
      * @throws SQLException
      */
+    @SuppressWarnings("unused")
     private void setParam(PreparedStatement preparedState, int index, PrepareSqlRequest.StateParam param)
             throws SQLException {
         boolean isNull = (null == param.getValue());

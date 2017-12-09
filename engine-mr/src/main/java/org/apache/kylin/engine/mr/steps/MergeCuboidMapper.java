@@ -91,7 +91,7 @@ public class MergeCuboidMapper extends KylinMapper<Text, Text, Text, Text> {
     protected void doSetup(Context context) throws IOException, InterruptedException {
         super.bindCurrentConfiguration(context.getConfiguration());
 
-        cubeName = context.getConfiguration().get(BatchConstants.CFG_CUBE_NAME);
+        cubeName = context.getConfiguration().get(BatchConstants.CFG_CUBE_NAME).toUpperCase();
         segmentID = context.getConfiguration().get(BatchConstants.CFG_CUBE_SEGMENT_ID);
 
         config = AbstractHadoopJob.loadKylinPropsAndMetadata();
@@ -147,7 +147,7 @@ public class MergeCuboidMapper extends KylinMapper<Text, Text, Text, Text> {
     @Override
     public void doMap(Text key, Text value, Context context) throws IOException, InterruptedException {
         long cuboidID = rowKeySplitter.split(key.getBytes());
-        Cuboid cuboid = Cuboid.findForMandatory(cubeDesc, cuboidID);
+        Cuboid cuboid = Cuboid.findById(cube, cuboidID);
         RowKeyEncoder rowkeyEncoder = rowKeyEncoderProvider.getRowkeyEncoder(cuboid);
 
         SplittedBytes[] splittedByteses = rowKeySplitter.getSplitBuffers();
@@ -209,9 +209,9 @@ public class MergeCuboidMapper extends KylinMapper<Text, Text, Text, Text> {
 
         int fullKeySize = rowkeyEncoder.getBytesLength();
         while (newKeyBuf.array().length < fullKeySize) {
-            newKeyBuf = new ByteArray(newKeyBuf.length() * 2);
+            newKeyBuf.set(new byte[newKeyBuf.length() * 2]);
         }
-        newKeyBuf.setLength(fullKeySize);
+        newKeyBuf.set(0, fullKeySize);
 
         rowkeyEncoder.encode(new ByteArray(newKeyBodyBuf, 0, bufOffset), newKeyBuf);
         outputKey.set(newKeyBuf.array(), 0, fullKeySize);

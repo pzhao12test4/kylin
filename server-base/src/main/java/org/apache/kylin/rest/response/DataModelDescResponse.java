@@ -58,5 +58,6 @@ public class DataModelDescResponse extends DataModelDesc {
         if (dataModelDesc.getPartitionDesc() != null)
             setPartitionDesc(PartitionDesc.getCopyOf(dataModelDesc.getPartitionDesc()));
         setCapacity(dataModelDesc.getCapacity());
+        setComputedColumnDescs(dataModelDesc.getComputedColumnDescs());
     }
 }

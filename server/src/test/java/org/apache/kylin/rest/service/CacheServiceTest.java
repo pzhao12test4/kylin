@@ -36,10 +36,9 @@ import org.apache.kylin.cube.CubeInstance;
 import org.apache.kylin.cube.CubeManager;
 import org.apache.kylin.cube.CubeSegment;
 import org.apache.kylin.cube.model.CubeDesc;
-import org.apache.kylin.metadata.TableMetadataManager;
+import org.apache.kylin.metadata.MetadataManager;
 import org.apache.kylin.metadata.cachesync.Broadcaster;
 import org.apache.kylin.metadata.model.DataModelDesc;
-import org.apache.kylin.metadata.model.DataModelManager;
 import org.apache.kylin.metadata.model.JoinTableDesc;
 import org.apache.kylin.metadata.model.SegmentRange.TSRange;
 import org.apache.kylin.metadata.model.TableDesc;
@@ -156,10 +155,6 @@ public class CacheServiceTest extends LocalFileMetadataTestCase {
     private void waitForCounterAndClear(long count) {
         int retryTimes = 0;
         while ((!counter.compareAndSet(count, 0L))) {
-            // take into account wipe retry causing counter larger than count
-            if (counter.get() > count) {
-                counter.decrementAndGet();
-            }
             if (++retryTimes > 30) {
                 throw new RuntimeException("timeout");
             }
@@ -183,8 +178,8 @@ public class CacheServiceTest extends LocalFileMetadataTestCase {
         return CubeDescManager.getInstance(config);
     }
 
-    private static DataModelManager getMetadataManager(KylinConfig config) throws Exception {
-        return DataModelManager.getInstance(config);
+    private static MetadataManager getMetadataManager(KylinConfig config) throws Exception {
+        return MetadataManager.getInstance(config);
     }
 
     @Test
@@ -274,7 +269,7 @@ public class CacheServiceTest extends LocalFileMetadataTestCase {
         assertNotNull(cubeDescManager.getCubeDesc(cubeDescName));
         assertNotNull(cubeDescManagerB.getCubeDesc(cubeDescName));
 
-        cubeDesc.setNotifyList(Arrays.asList("test@email.com", "test@email.com", "test@email.com"));
+        cubeDesc.setNotifyList(Arrays.asList("test@email", "test@email", "test@email"));
         cubeDescManager.updateCubeDesc(cubeDesc);
         assertEquals(1, broadcaster.getCounterAndClear());
         waitForCounterAndClear(1);
@@ -301,44 +296,42 @@ public class CacheServiceTest extends LocalFileMetadataTestCase {
 
     @Test
     public void testMetaCRUD() throws Exception {
-        final TableMetadataManager tableMgr = TableMetadataManager.getInstance(configA);
-        final TableMetadataManager tableMgrB = TableMetadataManager.getInstance(configB);
-        final DataModelManager modelMgr = DataModelManager.getInstance(configA);
-        final DataModelManager modelMgrB = DataModelManager.getInstance(configB);
+        final MetadataManager metadataManager = MetadataManager.getInstance(configA);
+        final MetadataManager metadataManagerB = MetadataManager.getInstance(configB);
         final Broadcaster broadcaster = Broadcaster.getInstance(configA);
         broadcaster.getCounterAndClear();
 
         TableDesc tableDesc = createTestTableDesc();
-        assertTrue(tableMgr.getTableDesc(tableDesc.getIdentity(), "default") == null);
-        assertTrue(tableMgrB.getTableDesc(tableDesc.getIdentity(), "default") == null);
-        tableMgr.saveSourceTable(tableDesc, "default");
+        assertTrue(metadataManager.getTableDesc(tableDesc.getIdentity(), "default") == null);
+        assertTrue(metadataManagerB.getTableDesc(tableDesc.getIdentity(), "default") == null);
+        metadataManager.saveSourceTable(tableDesc, "default");
         //only one for table insert
         assertEquals(1, broadcaster.getCounterAndClear());
         waitForCounterAndClear(1);
-        assertNotNull(tableMgr.getTableDesc(tableDesc.getIdentity(), "default"));
-        assertNotNull(tableMgrB.getTableDesc(tableDesc.getIdentity(), "default"));
+        assertNotNull(metadataManager.getTableDesc(tableDesc.getIdentity(), "default"));
+        assertNotNull(metadataManagerB.getTableDesc(tableDesc.getIdentity(), "default"));
 
         final String dataModelName = "test_data_model";
-        DataModelDesc dataModelDesc = modelMgr.getDataModelDesc("test_kylin_left_join_model_desc");
+        DataModelDesc dataModelDesc = metadataManager.getDataModelDesc("test_kylin_left_join_model_desc");
         dataModelDesc.setName(dataModelName);
         dataModelDesc.setLastModified(0);
-        assertTrue(modelMgr.getDataModelDesc(dataModelName) == null);
-        assertTrue(modelMgrB.getDataModelDesc(dataModelName) == null);
+        assertTrue(metadataManager.getDataModelDesc(dataModelName) == null);
+        assertTrue(metadataManagerB.getDataModelDesc(dataModelName) == null);
 
         dataModelDesc.setName(dataModelName);
-        modelMgr.createDataModelDesc(dataModelDesc, "default", "ADMIN");
+        metadataManager.createDataModelDesc(dataModelDesc, "default", "ADMIN");
         //one for data model creation, one for project meta update
         assertEquals(2, broadcaster.getCounterAndClear());
         waitForCounterAndClear(2);
-        assertEquals(dataModelDesc.getName(), modelMgrB.getDataModelDesc(dataModelName).getName());
+        assertEquals(dataModelDesc.getName(), metadataManagerB.getDataModelDesc(dataModelName).getName());
 
         final JoinTableDesc[] lookups = dataModelDesc.getJoinTables();
         assertTrue(lookups.length > 0);
-        modelMgr.updateDataModelDesc(dataModelDesc);
+        metadataManager.updateDataModelDesc(dataModelDesc);
         //only one for data model update
         assertEquals(1, broadcaster.getCounterAndClear());
         waitForCounterAndClear(1);
-        assertEquals(dataModelDesc.getJoinTables().length, modelMgrB.getDataModelDesc(dataModelName).getJoinTables().length);
+        assertEquals(dataModelDesc.getJoinTables().length, metadataManagerB.getDataModelDesc(dataModelName).getJoinTables().length);
 
     }
 

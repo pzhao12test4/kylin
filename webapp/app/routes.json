@@ -112,13 +112,5 @@
       "tab": "models",
       "controller": "ModelEditCtrl"
     }
-  },
-  {
-    "url": "/dashboard",
-    "params": {
-      "templateUrl": "partials/dashboard/dashboard.html",
-      "tab": "dashboard",
-      "controller": "DashboardCtrl"
-    }
   }
 ]

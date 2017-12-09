@@ -110,7 +110,6 @@ public class FactDistinctColumnsReducer extends KylinReducer<SelfDefineSortableK
         if (collectStatistics && (taskId == numberOfTasks - 1)) {
             // hll
             isStatistics = true;
-            baseCuboidId = cube.getCuboidScheduler().getBaseCuboidId();
             baseCuboidRowCountInMappers = Lists.newArrayList();
             cuboidHLLMap = Maps.newHashMap();
             samplingPercentage = Integer.parseInt(context.getConfiguration().get(BatchConstants.CFG_STATISTICS_SAMPLING_PERCENT));
@@ -142,7 +141,7 @@ public class FactDistinctColumnsReducer extends KylinReducer<SelfDefineSortableK
             }
             if (buildDictInReducer) {
                 builder = DictionaryGenerator.newDictionaryBuilder(col.getType());
-                builder.init(null, 0, null);
+                builder.init(null, 0);
             }
             logger.info("Reducer " + taskId + " handling column " + col + ", buildDictInReducer=" + buildDictInReducer);
         }

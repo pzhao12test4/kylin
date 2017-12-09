@@ -31,8 +31,6 @@ import com.google.common.collect.Maps;
  */
 public class DefaultChainedExecutable extends AbstractExecutable implements ChainedExecutable {
 
-    public static final Integer DEFAULT_PRIORITY = 10;
-
     private final List<AbstractExecutable> subTasks = Lists.newArrayList();
 
     public DefaultChainedExecutable() {
@@ -66,7 +64,7 @@ public class DefaultChainedExecutable extends AbstractExecutable implements Chai
                 return subTask.execute(context);
             }
         }
-        return new ExecuteResult(ExecuteResult.State.SUCCEED);
+        return new ExecuteResult(ExecuteResult.State.SUCCEED, null);
     }
 
     @Override
@@ -84,7 +82,7 @@ public class DefaultChainedExecutable extends AbstractExecutable implements Chai
     @Override
     protected void onExecuteError(Throwable exception, ExecutableContext executableContext) {
         super.onExecuteError(exception, executableContext);
-        onStatusChange(executableContext, ExecuteResult.createError(exception), ExecutableState.ERROR);
+        notifyUserStatusChange(executableContext, ExecutableState.ERROR);
     }
 
     @Override
@@ -93,10 +91,10 @@ public class DefaultChainedExecutable extends AbstractExecutable implements Chai
         
         if (isDiscarded()) {
             setEndTime(System.currentTimeMillis());
-            onStatusChange(executableContext, result, ExecutableState.DISCARDED);
+            notifyUserStatusChange(executableContext, ExecutableState.DISCARDED);
         } else if (isPaused()) {
             setEndTime(System.currentTimeMillis());
-            onStatusChange(executableContext, result, ExecutableState.STOPPED);
+            notifyUserStatusChange(executableContext, ExecutableState.STOPPED);
         } else if (result.succeed()) {
             List<? extends Executable> jobs = getTasks();
             boolean allSucceed = true;
@@ -121,11 +119,11 @@ public class DefaultChainedExecutable extends AbstractExecutable implements Chai
             if (allSucceed) {
                 setEndTime(System.currentTimeMillis());
                 mgr.updateJobOutput(getId(), ExecutableState.SUCCEED, null, null);
-                onStatusChange(executableContext, result, ExecutableState.SUCCEED);
+                notifyUserStatusChange(executableContext, ExecutableState.SUCCEED);
             } else if (hasError) {
                 setEndTime(System.currentTimeMillis());
                 mgr.updateJobOutput(getId(), ExecutableState.ERROR, null, null);
-                onStatusChange(executableContext, result, ExecutableState.ERROR);
+                notifyUserStatusChange(executableContext, ExecutableState.ERROR);
             } else if (hasRunning) {
                 mgr.updateJobOutput(getId(), ExecutableState.RUNNING, null, null);
             } else if (hasDiscarded) {
@@ -137,12 +135,8 @@ public class DefaultChainedExecutable extends AbstractExecutable implements Chai
         } else {
             setEndTime(System.currentTimeMillis());
             mgr.updateJobOutput(getId(), ExecutableState.ERROR, null, result.output());
-            onStatusChange(executableContext, result, ExecutableState.ERROR);
+            notifyUserStatusChange(executableContext, ExecutableState.ERROR);
         }
-    }
-
-    protected void onStatusChange(ExecutableContext context, ExecuteResult result, ExecutableState state) {
-        notifyUserStatusChange(context, state);
     }
 
     @Override
@@ -168,10 +162,5 @@ public class DefaultChainedExecutable extends AbstractExecutable implements Chai
     public void addTask(AbstractExecutable executable) {
         executable.setId(getId() + "-" + String.format("%02d", subTasks.size()));
         this.subTasks.add(executable);
-    }
-
-    @Override
-    public int getDefaultPriority() {
-        return DEFAULT_PRIORITY;
     }
 }

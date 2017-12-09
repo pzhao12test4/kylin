@@ -18,17 +18,13 @@
 
 package org.apache.kylin.query.util;
 
-import org.apache.kylin.common.KylinConfig;
-
 public class KeywordDefaultDirtyHack implements QueryUtil.IQueryTransformer {
 
     @Override
     public String transform(String sql, String project, String defaultSchema) {
-        if (!KylinConfig.getInstanceFromEnv().isEscapeDefaultKeywordEnabled()) {
-            return sql;
-        }
         // KYLIN-2108, DEFAULT is hive default database, but a sql keyword too, needs quote
-        sql = sql.replaceAll("(?i)default\\.", "\"DEFAULT\".");
+        sql = sql.replace("DEFAULT.", "\"DEFAULT\".");
+        sql = sql.replace("default.", "\"default\".");
         sql = sql.replace("defaultCatalog.", "");
 
         return sql;

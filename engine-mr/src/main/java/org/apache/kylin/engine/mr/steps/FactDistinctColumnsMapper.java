@@ -21,15 +21,15 @@ package org.apache.kylin.engine.mr.steps;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collection;
-import java.util.Set;
+import java.util.List;
 
 import org.apache.hadoop.io.Text;
 import org.apache.kylin.common.KylinVersion;
+import org.apache.kylin.common.util.ByteArray;
 import org.apache.kylin.common.util.Bytes;
 import org.apache.kylin.common.util.StringUtil;
-import org.apache.kylin.cube.cuboid.CuboidUtil;
+import org.apache.kylin.cube.cuboid.CuboidScheduler;
 import org.apache.kylin.engine.mr.common.BatchConstants;
-import org.apache.kylin.engine.mr.common.StatisticsDecisionUtil;
 import org.apache.kylin.measure.BufferedMeasureCodec;
 import org.apache.kylin.measure.hllc.HLLCounter;
 import org.apache.kylin.measure.hllc.RegisterType;
@@ -38,7 +38,7 @@ import org.apache.kylin.metadata.model.TblColRef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Sets;
+import com.google.common.collect.Lists;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
@@ -57,6 +57,7 @@ public class FactDistinctColumnsMapper<KEYIN> extends FactDistinctColumnsMapperB
 
 
     protected boolean collectStatistics = false;
+    protected CuboidScheduler cuboidScheduler = null;
     protected int nRowKey;
     private Integer[][] allCuboidsBitSet = null;
     private HLLCounter[] allCuboidsHLL = null;
@@ -66,6 +67,7 @@ public class FactDistinctColumnsMapper<KEYIN> extends FactDistinctColumnsMapperB
     private int samplingPercentage;
     //private ByteArray[] row_hashcodes = null;
     private long[] rowHashCodesLong = null;
+    private ByteArray[] row_hashcodes = null;
     private ByteBuffer tmpbuf;
     private static final Text EMPTY_TEXT = new Text();
     public static final byte MARK_FOR_PARTITION_COL = (byte) 0xFE;
@@ -86,16 +88,15 @@ public class FactDistinctColumnsMapper<KEYIN> extends FactDistinctColumnsMapperB
         collectStatistics = Boolean.parseBoolean(context.getConfiguration().get(BatchConstants.CFG_STATISTICS_ENABLED));
         if (collectStatistics) {
             samplingPercentage = Integer.parseInt(context.getConfiguration().get(BatchConstants.CFG_STATISTICS_SAMPLING_PERCENT));
+            cuboidScheduler = cubeDesc.getInitialCuboidScheduler();
             nRowKey = cubeDesc.getRowkey().getRowKeyColumns().length;
 
-            Set<Long> cuboidIdSet = Sets.newHashSet(cubeSeg.getCuboidScheduler().getAllCuboidIds());
-            if (StatisticsDecisionUtil.isAbleToOptimizeCubingPlan(cubeSeg)) {
-                // For cube planner, for every prebuilt cuboid, its related row count stats should be calculated
-                // If the precondition for trigger cube planner phase one is satisfied, we need to calculate row count stats for mandatory cuboids.
-                cuboidIdSet.addAll(cubeSeg.getCubeDesc().getMandatoryCuboids());
-            }
-            cuboidIds = cuboidIdSet.toArray(new Long[cuboidIdSet.size()]);
-            allCuboidsBitSet = CuboidUtil.getCuboidBitSet(cuboidIds, nRowKey);
+            List<Long> cuboidIdList = Lists.newArrayList();
+            List<Integer[]> allCuboidsBitSetList = Lists.newArrayList();
+            addCuboidBitSet(baseCuboidId, allCuboidsBitSetList, cuboidIdList);
+
+            allCuboidsBitSet = allCuboidsBitSetList.toArray(new Integer[cuboidIdList.size()][]);
+            cuboidIds = cuboidIdList.toArray(new Long[cuboidIdList.size()]);
 
             allCuboidsHLL = new HLLCounter[cuboidIds.length];
             for (int i = 0; i < cuboidIds.length; i++) {
@@ -118,6 +119,10 @@ public class FactDistinctColumnsMapper<KEYIN> extends FactDistinctColumnsMapperB
             //for KYLIN-2518 backward compatibility
             if (KylinVersion.isBefore200(cubeDesc.getVersion())) {
                 isUsePutRowKeyToHllNewAlgorithm = false;
+                row_hashcodes = new ByteArray[nRowKey];
+                for (int i = 0; i < nRowKey; i++) {
+                    row_hashcodes[i] = new ByteArray();
+                }
                 hf = Hashing.murmur3_32();
                 logger.info("Found KylinVersion : {}. Use old algorithm for cuboid sampling.", cubeDesc.getVersion());
             } else {
@@ -128,6 +133,27 @@ public class FactDistinctColumnsMapper<KEYIN> extends FactDistinctColumnsMapperB
             }
         }
 
+    }
+
+    private void addCuboidBitSet(long cuboidId, List<Integer[]> allCuboidsBitSet, List<Long> allCuboids) {
+        allCuboids.add(cuboidId);
+        Integer[] indice = new Integer[Long.bitCount(cuboidId)];
+
+        long mask = Long.highestOneBit(baseCuboidId);
+        int position = 0;
+        for (int i = 0; i < nRowKey; i++) {
+            if ((mask & cuboidId) > 0) {
+                indice[position] = i;
+                position++;
+            }
+            mask = mask >> 1;
+        }
+
+        allCuboidsBitSet.add(indice);
+        Collection<Long> children = cuboidScheduler.getSpanningCuboid(cuboidId);
+        for (Long childId : children) {
+            addCuboidBitSet(childId, allCuboidsBitSet, allCuboids);
+        }
     }
 
     @Override
@@ -211,14 +237,13 @@ public class FactDistinctColumnsMapper<KEYIN> extends FactDistinctColumnsMapperB
 
     private void putRowKeyToHLLOld(String[] row) {
         //generate hash for each row key column
-        byte[][] rowHashCodes = new byte[nRowKey][];
         for (int i = 0; i < nRowKey; i++) {
             Hasher hc = hf.newHasher();
             String colValue = row[intermediateTableDesc.getRowKeyColumnIndexes()[i]];
             if (colValue != null) {
-                rowHashCodes[i] = hc.putString(colValue).hash().asBytes();
+                row_hashcodes[i].set(hc.putString(colValue).hash().asBytes());
             } else {
-                rowHashCodes[i] = hc.putInt(0).hash().asBytes();
+                row_hashcodes[i].set(hc.putInt(0).hash().asBytes());
             }
         }
 
@@ -226,7 +251,7 @@ public class FactDistinctColumnsMapper<KEYIN> extends FactDistinctColumnsMapperB
         for (int i = 0, n = allCuboidsBitSet.length; i < n; i++) {
             Hasher hc = hf.newHasher();
             for (int position = 0; position < allCuboidsBitSet[i].length; position++) {
-                hc.putBytes(rowHashCodes[allCuboidsBitSet[i][position]]);
+                hc.putBytes(row_hashcodes[allCuboidsBitSet[i][position]].array());
             }
 
             allCuboidsHLL[i].add(hc.hash().asBytes());

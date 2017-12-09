@@ -18,11 +18,10 @@
 
 package org.apache.kylin.metadata.datatype;
 
-import java.nio.ByteBuffer;
-
 import org.apache.kylin.common.util.DateFormat;
 
-@SuppressWarnings("serial")
+import java.nio.ByteBuffer;
+
 public class DateTimeSerializer extends DataTypeSerializer<Long> {
 
     public DateTimeSerializer(DataType type) {

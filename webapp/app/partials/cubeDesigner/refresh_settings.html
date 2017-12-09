@@ -50,7 +50,6 @@
                                     class="chosen-select">
                             </select>
                             <input type="text" ng-if="timeRange.type=='days'"
-                                   onInput="this.value=this.value.replace(/[^0-9]/g, '')"
                                    ng-change="refreshAutoMergeTimeRanges(_auto_merge_time_ranges,$index,timeRange)"
                                    class="form-control input-sm" placeholder="days range" ng-model="timeRange.range">
                           </td>
@@ -89,27 +88,6 @@
                       </table>
                     </div>
 
-                  </div>
-                </div>
-              </div>
-            </td>
-          </tr>
-
-          <tr>
-            <td>
-              <!--Cube Size-->
-              <div class="form-group">
-                <div class="row middle-popover">
-                  <label class="control-label col-xs-12 col-sm-3 no-padding-right font-color-default">
-                    <b>Volatile Range</b> <i class="fa fa-info-circle" title="Volatile Range" kylinpopover template="volatileRangeTip.html" placement="right"></i>
-                  </label>
-
-                  <div class="col-xs-12 col-sm-6">
-                    <!--volatile range is store in CubeInstance, will convert to cubeMetaFrame for front end-->
-                    <input type="text" retention-format class="form-control ng-scope ng-pristine ng-valid"
-                           placeholder="how many days cube volatile" ng-model="cubeMetaFrame.volatile_range"
-                           ng-if="state.mode=='edit'">
-                    <span ng-if="state.mode=='view'">{{cubeMetaFrame.volatile_range | millisecondsToDay}}</span>
                   </div>
                 </div>
               </div>
@@ -180,13 +158,9 @@
 </div>
 
 <script type="text/ng-template" id="autoMergeThresholdsTip.html">
-    <p>The thresholds will be checked to see if any consecutive segments' time range has reached a threshold. For example the [7 days, 30 days] will result in daily incremental segments being merged every 7 days, and five 7-days segments will get merged as they exceed 30 days.</p>
-</script>
-
-<script type="text/ng-template" id="volatileRangeTip.html">
-  <p>By default it is '0', which will auto merge all possible cube segments, or 'Auto Merge' will not merge latest [Volatile Range] days cube segments.</p>
+    <p>The thresholds will be checked ascendingly to see if any consectuive segments' time range has exceeded it. For example the [7 days, 30 days] will result in daily incremental segments being merged every 7 days, and the 7-days segments will get merged every 30 days.</p>
 </script>
 
 <script type="text/ng-template" id="retentionTip.html">
-<p>By default it is '0', which will keep all segments, or will keep latest [Retention Threshold] days cube segments.</p>
+<p>By default it's '0',which will keep all historic cube segments ,or will keep latest [Retention Threshold] days cube segments.</p>
 </script>

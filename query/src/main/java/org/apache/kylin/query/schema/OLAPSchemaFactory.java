@@ -37,6 +37,7 @@ import org.apache.kylin.common.KylinConfig;
 import org.apache.kylin.measure.MeasureTypeFactory;
 import org.apache.kylin.metadata.model.DatabaseDesc;
 import org.apache.kylin.metadata.model.TableDesc;
+import org.apache.kylin.metadata.project.ProjectInstance;
 import org.apache.kylin.metadata.project.ProjectManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,6 +59,7 @@ public class OLAPSchemaFactory implements SchemaFactory {
     }
 
     public static File createTempOLAPJson(String project, KylinConfig config) {
+        project = ProjectInstance.getNormalizedProjectName(project);
 
         Collection<TableDesc> tables = ProjectManager.getInstance(config).listExposedTables(project);
 

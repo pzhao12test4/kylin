@@ -60,19 +60,17 @@ public class DictionaryGenerator {
         return builder;
     }
 
-    public static Dictionary<String> buildDictionary(DataType dataType, IDictionaryValueEnumerator valueEnumerator)
-            throws IOException {
+    public static Dictionary<String> buildDictionary(DataType dataType, IDictionaryValueEnumerator valueEnumerator) throws IOException {
         return buildDictionary(newDictionaryBuilder(dataType), null, valueEnumerator);
     }
 
-    static Dictionary<String> buildDictionary(IDictionaryBuilder builder, DictionaryInfo dictInfo,
-            IDictionaryValueEnumerator valueEnumerator) throws IOException {
+    static Dictionary<String> buildDictionary(IDictionaryBuilder builder, DictionaryInfo dictInfo, IDictionaryValueEnumerator valueEnumerator) throws IOException {
         int baseId = 0; // always 0 for now
         int nSamples = 5;
         ArrayList<String> samples = new ArrayList<String>(nSamples);
 
         // init the builder
-        builder.init(dictInfo, baseId, null);
+        builder.init(dictInfo, baseId);
 
         // add values
         while (valueEnumerator.moveNext()) {
@@ -103,7 +101,7 @@ public class DictionaryGenerator {
     }
 
     public static Dictionary mergeDictionaries(DataType dataType, List<DictionaryInfo> sourceDicts) throws IOException {
-        return buildDictionary(dataType, new MultipleDictionaryValueEnumerator(dataType, sourceDicts));
+        return buildDictionary(dataType, new MultipleDictionaryValueEnumerator(sourceDicts));
     }
 
     private static class DateDictBuilder implements IDictionaryBuilder {
@@ -113,7 +111,7 @@ public class DictionaryGenerator {
         private String datePattern;
 
         @Override
-        public void init(DictionaryInfo info, int baseId, String hdfsDir) throws IOException {
+        public void init(DictionaryInfo info, int baseId) throws IOException {
             this.baseId = baseId;
         }
 
@@ -121,7 +119,7 @@ public class DictionaryGenerator {
         public boolean addValue(String value) {
             if (StringUtils.isBlank(value)) // empty string is treated as null
                 return false;
-
+            
             // detect date pattern on the first value
             if (datePattern == null) {
                 for (String p : DATE_PATTERNS) {
@@ -136,7 +134,7 @@ public class DictionaryGenerator {
                 if (datePattern == null)
                     throw new IllegalArgumentException("Unknown date pattern for input value: " + value);
             }
-
+            
             // check the date format
             DateFormat.stringToDate(value, datePattern);
             return true;
@@ -154,7 +152,7 @@ public class DictionaryGenerator {
     private static class TimeDictBuilder implements IDictionaryBuilder {
 
         @Override
-        public void init(DictionaryInfo info, int baseId, String hdfsDir) throws IOException {
+        public void init(DictionaryInfo info, int baseId) throws IOException {
         }
 
         @Override
@@ -176,33 +174,33 @@ public class DictionaryGenerator {
     private static class StringTrieDictBuilder implements IDictionaryBuilder {
         int baseId;
         TrieDictionaryBuilder builder;
-
+        
         @Override
-        public void init(DictionaryInfo info, int baseId, String hdfsDir) throws IOException {
+        public void init(DictionaryInfo info, int baseId) throws IOException {
             this.baseId = baseId;
             this.builder = new TrieDictionaryBuilder(new StringBytesConverter());
         }
-
+        
         @Override
         public boolean addValue(String value) {
             if (value == null)
                 return false;
-
+            
             builder.addValue(value);
             return true;
         }
-
+        
         @Override
         public Dictionary<String> build() throws IOException {
             return builder.build(baseId);
         }
     }
-
+    
     private static class StringTrieDictForestBuilder implements IDictionaryBuilder {
         TrieDictionaryForestBuilder builder;
 
         @Override
-        public void init(DictionaryInfo info, int baseId, String hdfsDir) throws IOException {
+        public void init(DictionaryInfo info, int baseId) throws IOException {
             builder = new TrieDictionaryForestBuilder(new StringBytesConverter(), baseId);
         }
 
@@ -225,33 +223,33 @@ public class DictionaryGenerator {
     private static class NumberTrieDictBuilder implements IDictionaryBuilder {
         int baseId;
         NumberDictionaryBuilder builder;
-
+        
         @Override
-        public void init(DictionaryInfo info, int baseId, String hdfsDir) throws IOException {
+        public void init(DictionaryInfo info, int baseId) throws IOException {
             this.baseId = baseId;
             this.builder = new NumberDictionaryBuilder();
         }
-
+        
         @Override
         public boolean addValue(String value) {
             if (StringUtils.isBlank(value)) // empty string is treated as null
                 return false;
-
+            
             builder.addValue(value);
             return true;
         }
-
+        
         @Override
         public Dictionary<String> build() throws IOException {
             return builder.build(baseId);
         }
     }
-
+    
     private static class NumberTrieDictForestBuilder implements IDictionaryBuilder {
         NumberDictionaryForestBuilder builder;
 
         @Override
-        public void init(DictionaryInfo info, int baseId, String hdfsDir) throws IOException {
+        public void init(DictionaryInfo info, int baseId) throws IOException {
             builder = new NumberDictionaryForestBuilder(baseId);
         }
 

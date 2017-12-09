@@ -18,11 +18,11 @@
 
 package org.apache.kylin.measure.hllc;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-
 import org.apache.kylin.metadata.datatype.DataType;
 import org.apache.kylin.metadata.datatype.DataTypeSerializer;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
 
 /**
  * @author yangli9
@@ -56,7 +56,7 @@ public class HLLCSerializer extends DataTypeSerializer<HLLCounter> {
 
     @Override
     public HLLCounter deserialize(ByteBuffer in) {
-        HLLCounter hllc = new HLLCounter(precision);
+        HLLCounter hllc = current();
         try {
             hllc.readRegisters(in);
         } catch (IOException e) {

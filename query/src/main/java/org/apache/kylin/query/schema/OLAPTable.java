@@ -63,6 +63,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 /**
  */
@@ -134,7 +135,6 @@ public class OLAPTable extends AbstractQueryableTable implements TranslatableTab
         return this.rowType;
     }
 
-    @SuppressWarnings("deprecation")
     private RelDataType deriveRowType(RelDataTypeFactory typeFactory) {
         RelDataTypeFactory.FieldInfoBuilder fieldInfo = typeFactory.builder();
         for (ColumnDesc column : sourceColumns) {
@@ -196,19 +196,16 @@ public class OLAPTable extends AbstractQueryableTable implements TranslatableTab
 
         //if exist sum(x), where x is integer/short/byte
         //to avoid overflow we upgrade x's type to long
-        HashSet<ColumnDesc> upgraded = new HashSet<>();
-        
         //this includes checking two parts:
         //1. sum measures in cubes:
+        HashSet<ColumnDesc> upgradeCols = Sets.newHashSet();
         for (MeasureDesc m : mgr.listEffectiveMeasures(olapSchema.getProjectName(), sourceTable.getIdentity())) {
             if (m.getFunction().isSum()) {
                 FunctionDesc func = m.getFunction();
-                ColumnDesc col = func.getParameter().getColRefs().get(0).getColumnDesc();
-                if (col.getType() != func.getReturnDataType()) {
-                    if (upgraded.contains(col) == false) {
-                        upgradeColumnType(tableColumns, col, func.getReturnDataType());
-                        upgraded.add(col);
-                    }
+                if (func.getReturnDataType() != func.getRewriteFieldType() && //
+                        func.getReturnDataType().isBigInt() && //
+                        func.getRewriteFieldType().isIntegerFamily()) {
+                    upgradeCols.add(func.getParameter().getColRefs().get(0).getColumnDesc());
                 }
             }
         }
@@ -220,14 +217,21 @@ public class OLAPTable extends AbstractQueryableTable implements TranslatableTab
                 for (String metricColumn : model.getMetrics()) {
                     TblColRef col = model.findColumn(metricColumn);
                     if (col.getTable().equals(sourceTable.getIdentity()) && col.getType().isIntegerFamily()
-                            && !col.getType().isBigInt()) {
-                        if (upgraded.contains(col.getColumnDesc()) == false) {
-                            upgradeColumnType(tableColumns, col.getColumnDesc(), DataType.getType("bigint"));
-                            upgraded.add(col.getColumnDesc());
-                        }
-                    }
+                            && !col.getType().isBigInt())
+                        upgradeCols.add(col.getColumnDesc());
                 }
             }
+        }
+
+        for (ColumnDesc upgrade : upgradeCols) {
+            int index = tableColumns.indexOf(upgrade);
+            if (index < 0) {
+                throw new IllegalStateException(
+                        "Metric column " + upgrade + " is not found in the the project's columns");
+            }
+            tableColumns.get(index).setUpgradedType("bigint");
+            logger.info("To avoid overflow, upgraded {}'s type from {} to {}", tableColumns.get(index),
+                    tableColumns.get(index).getType(), tableColumns.get(index).getUpgradedType());
         }
 
         Collections.sort(tableColumns, new Comparator<ColumnDesc>() {
@@ -237,16 +241,6 @@ public class OLAPTable extends AbstractQueryableTable implements TranslatableTab
             }
         });
         return Lists.newArrayList(Iterables.concat(tableColumns, metricColumns));
-    }
-
-    private void upgradeColumnType(List<ColumnDesc> tableColumns, ColumnDesc upgrade, DataType newType) {
-        int index = tableColumns.indexOf(upgrade);
-        if (index < 0) {
-            throw new IllegalStateException("Metric column " + upgrade + " is not found in the the project's columns");
-        }
-        tableColumns.get(index).setUpgradedType(newType);
-        logger.info("To avoid overflow, upgraded {}'s type from {} to {}", tableColumns.get(index),
-                tableColumns.get(index).getType(), tableColumns.get(index).getUpgradedType());
     }
 
     @Override

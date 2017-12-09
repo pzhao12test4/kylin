@@ -117,7 +117,7 @@ public class PartitionDesc implements Serializable {
     }
 
     // for test
-    public void setPartitionTimeColumn(String partitionTimeColumn) {
+    void setPartitionTimeColumn(String partitionTimeColumn) {
         this.partitionTimeColumn = partitionTimeColumn;
     }
 
@@ -184,7 +184,7 @@ public class PartitionDesc implements Serializable {
         public String buildDateRangeCondition(PartitionDesc partDesc, SegmentRange segRange) {
             long startInclusive = (Long) segRange.start.v;
             long endExclusive = (Long) segRange.end.v;
-
+            
             TblColRef partitionDateColumn = partDesc.getPartitionDateColumnRef();
             TblColRef partitionTimeColumn = partDesc.getPartitionTimeColumnRef();
             StringBuilder builder = new StringBuilder();
@@ -232,12 +232,6 @@ public class PartitionDesc implements Serializable {
         private static void buildSingleColumnRangeCondition(StringBuilder builder, TblColRef partitionColumn,
                 long startInclusive, long endExclusive, String partitionColumnDateFormat) {
             String partitionColumnName = partitionColumn.getIdentity();
-
-            if (endExclusive <= startInclusive) {
-                builder.append("1=1");
-                return;
-            }
-
             if (startInclusive > 0) {
                 builder.append(partitionColumnName + " >= '"
                         + DateFormat.formatToDateStr(startInclusive, partitionColumnDateFormat) + "'");

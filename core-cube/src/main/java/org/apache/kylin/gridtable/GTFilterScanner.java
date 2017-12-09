@@ -39,7 +39,6 @@ public class GTFilterScanner extends GTForwardingScanner {
     private IEvaluatableTuple oneTuple; // avoid instance creation
 
     private GTRecord next = null;
-    private long inputRowCount = 0L;
 
     private IGTBypassChecker checker = null;
 
@@ -66,10 +65,6 @@ public class GTFilterScanner extends GTForwardingScanner {
         this.checker = checker;
     }
 
-    public long getInputRowCount() {
-        return inputRowCount;
-    }
-
     @Override
     public Iterator<GTRecord> iterator() {
         return new Iterator<GTRecord>() {
@@ -84,7 +79,6 @@ public class GTFilterScanner extends GTForwardingScanner {
 
                 while (inputIterator.hasNext()) {
                     next = inputIterator.next();
-                    inputRowCount++;
                     if (!evaluate()) {
                         continue;
                     }

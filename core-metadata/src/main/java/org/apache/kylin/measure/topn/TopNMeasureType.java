@@ -203,7 +203,7 @@ public class TopNMeasureType extends MeasureType<TopNCounter<ByteArray>> {
                         offset += dimensionEncodings[i].getLengthOfEncoding();
                     }
 
-                    c.getItem().reset(newIdBuf, bufOffset, newKeyLength);
+                    c.getItem().set(newIdBuf, bufOffset, newKeyLength);
                     bufOffset += newKeyLength;
                 }
                 return topNCounter;
@@ -380,12 +380,10 @@ public class TopNMeasureType extends MeasureType<TopNCounter<ByteArray>> {
             literalTupleIdx[i] = tupleInfo.hasColumn(colRef) ? tupleInfo.getColumnIndex(colRef) : -1;
         }
 
-        // for TopN, the aggr must be SUM
+        // for TopN, the aggr must be SUM, so the number fill into the column position (without rewrite)
         final int numericTupleIdx;
         if (numericCol != null) {
-            FunctionDesc sumFunc = FunctionDesc.newInstance(FunctionDesc.FUNC_SUM, ParameterDesc.newInstance(numericCol), numericCol.getType().toString());
-            String sumFieldName = sumFunc.getRewriteFieldName();
-            numericTupleIdx = tupleInfo.hasField(sumFieldName) ? tupleInfo.getFieldIndex(sumFieldName) : -1;
+            numericTupleIdx = tupleInfo.hasColumn(numericCol) ? tupleInfo.getColumnIndex(numericCol) : -1;
         } else {
             FunctionDesc countFunction = FunctionDesc.newInstance(FunctionDesc.FUNC_COUNT, ParameterDesc.newInstance("1"), "bigint");
             numericTupleIdx = tupleInfo.getFieldIndex(countFunction.getRewriteFieldName());

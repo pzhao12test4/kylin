@@ -61,7 +61,7 @@ public class TableExtDesc extends RootPersistentEntity {
     private Map<String, String> dataSourceProps = new HashMap<>();
 
     private String project;
-
+    
     public TableExtDesc() {
     }
 
@@ -72,7 +72,7 @@ public class TableExtDesc extends RootPersistentEntity {
     public static String concatRawResourcePath(String nameOnPath) {
         return ResourceStore.TABLE_EXD_RESOURCE_ROOT + "/" + nameOnPath + ".json";
     }
-
+    
     public static String concatResourcePath(String tableIdentity, String prj) {
         if (prj == null)
             return ResourceStore.TABLE_EXD_RESOURCE_ROOT + "/" + tableIdentity + ".json";
@@ -84,11 +84,11 @@ public class TableExtDesc extends RootPersistentEntity {
     public static Pair<String, String> parseResourcePath(String path) {
         return TableDesc.parseResourcePath(path);
     }
-
+    
     public String getProject() {
         return project;
     }
-
+    
     public int getFrequency() {
         return this.frequency;
     }
@@ -100,7 +100,7 @@ public class TableExtDesc extends RootPersistentEntity {
     public String getIdentity() {
         return this.tableIdentity;
     }
-
+    
     public String getJodID() {
         return this.jodID;
     }
@@ -137,14 +137,6 @@ public class TableExtDesc extends RootPersistentEntity {
             cardinality.append(",");
         }
         return cardinality.toString();
-    }
-
-    public void resetCardinality() {
-        int columnSize = this.columnStats.size();
-        this.columnStats.clear();
-        for (int i = 0; i < columnSize; i++) {
-            this.columnStats.add(new ColumnStats());
-        }
     }
 
     public void setCardinality(String cardinality) {
@@ -196,7 +188,7 @@ public class TableExtDesc extends RootPersistentEntity {
 
     public void init(String project) {
         this.project = project;
-
+        
         if (this.tableIdentity != null)
             this.tableIdentity = this.tableIdentity.toUpperCase();
     }
@@ -210,8 +202,7 @@ public class TableExtDesc extends RootPersistentEntity {
     }
 
     public boolean isPartitioned() {
-        return this.dataSourceProps.get("partition_column") == null ? false
-                : !this.dataSourceProps.get("partition_column").isEmpty();
+        return this.dataSourceProps.get("partition_column") == null ? false : !this.dataSourceProps.get("partition_column").isEmpty();
     }
 
     @Override
@@ -228,8 +219,7 @@ public class TableExtDesc extends RootPersistentEntity {
 
     @Override
     public String toString() {
-        return "TableExtDesc{" + "name='" + (null == tableIdentity ? "NULL" : tableIdentity) + '\''
-                + ", columns_samples=" + (null == columnStats ? "null" : Arrays.toString(columnStats.toArray()));
+        return "TableExtDesc{" + "name='" + (null == tableIdentity ? "NULL" : tableIdentity) + '\'' + ", columns_samples=" + (null == columnStats ? "null" : Arrays.toString(columnStats.toArray()));
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

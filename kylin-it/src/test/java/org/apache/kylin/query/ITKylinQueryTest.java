@@ -210,6 +210,7 @@ public class ITKylinQueryTest extends KylinTestBase {
             
         } finally {
             BackdoorToggles.cleanToggles();
+            
         }
     }
     
@@ -257,6 +258,11 @@ public class ITKylinQueryTest extends KylinTestBase {
         if ("left".equalsIgnoreCase(joinType)) {
             batchExecuteQuery(getQueryFolderPrefix() + "src/test/resources/query/sql_distinct");
         }
+    }
+
+    @Test
+    public void testComputedColumnsQuery() throws Exception {
+        execAndCompQuery(getQueryFolderPrefix() + "src/test/resources/query/sql_computedcolumn", null, true, CompareQueryBySuffix.INSTANCE);
     }
 
     @Test

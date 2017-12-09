@@ -18,10 +18,8 @@
 
 package org.apache.kylin.cube;
 
-import static org.apache.kylin.cube.cuboid.CuboidModeEnum.CURRENT;
-import static org.apache.kylin.cube.cuboid.CuboidModeEnum.RECOMMEND;
-
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,7 +30,6 @@ import org.apache.kylin.common.persistence.ResourceStore;
 import org.apache.kylin.common.persistence.RootPersistentEntity;
 import org.apache.kylin.common.util.CompressionUtils;
 import org.apache.kylin.common.util.JsonUtil;
-import org.apache.kylin.cube.cuboid.CuboidModeEnum;
 import org.apache.kylin.cube.cuboid.CuboidScheduler;
 import org.apache.kylin.cube.cuboid.TreeCuboidScheduler;
 import org.apache.kylin.cube.model.CubeDesc;
@@ -146,16 +143,6 @@ public class CubeInstance extends RootPersistentEntity implements IRealization, 
 
     public Segments<CubeSegment> getMergingSegments(CubeSegment mergedSegment) {
         return segments.getMergingSegments(mergedSegment);
-    }
-
-    public CubeSegment getOriginalSegmentToOptimize(CubeSegment optimizedSegment) {
-        for (CubeSegment segment : this.getSegments(SegmentStatusEnum.READY)) {
-            if (!optimizedSegment.equals(segment) //
-                    && optimizedSegment.getSegRange().equals(segment.getSegRange())) {
-                return segment;
-            }
-        }
-        return null;
     }
 
     public CubeDesc getDescriptor() {
@@ -341,36 +328,7 @@ public class CubeInstance extends RootPersistentEntity implements IRealization, 
         this.createTimeUTC = createTimeUTC;
     }
 
-    public Set<Long> getCuboidsByMode(String cuboidModeName) {
-        return getCuboidsByMode(cuboidModeName == null ? null : CuboidModeEnum.getByModeName(cuboidModeName));
-    }
-
-    public Set<Long> getCuboidsByMode(CuboidModeEnum cuboidMode) {
-        if (cuboidMode == null || cuboidMode == CURRENT) {
-            return getCuboidScheduler().getAllCuboidIds();
-        }
-        Set<Long> cuboidsRecommend = getCuboidsRecommend();
-        if (cuboidsRecommend == null || cuboidMode == RECOMMEND) {
-            return cuboidsRecommend;
-        }
-        Set<Long> currentCuboids = getCuboidScheduler().getAllCuboidIds();
-        switch (cuboidMode) {
-        case RECOMMEND_EXISTING:
-            cuboidsRecommend.retainAll(currentCuboids);
-            return cuboidsRecommend;
-        case RECOMMEND_MISSING:
-            cuboidsRecommend.removeAll(currentCuboids);
-            return cuboidsRecommend;
-        case RECOMMEND_MISSING_WITH_BASE:
-            cuboidsRecommend.removeAll(currentCuboids);
-            cuboidsRecommend.add(getCuboidScheduler().getBaseCuboidId());
-            return cuboidsRecommend;
-        default:
-            return null;
-        }
-    }
-
-    public Map<Long, Long> getCuboids() {
+    Map<Long, Long> getCuboids() {
         if (cuboidBytes == null)
             return null;
         byte[] uncompressed;
@@ -386,7 +344,7 @@ public class CubeInstance extends RootPersistentEntity implements IRealization, 
         }
     }
 
-    public void setCuboids(Map<Long, Long> cuboids) {
+    void setCuboids(Map<Long, Long> cuboids) {
         if (cuboids == null)
             return;
         if (cuboids.isEmpty()) {
@@ -403,7 +361,7 @@ public class CubeInstance extends RootPersistentEntity implements IRealization, 
         }
     }
 
-    public Set<Long> getCuboidsRecommend() {
+    Set<Long> getCuboidsRecommend() {
         if (cuboidBytesRecommend == null)
             return null;
         byte[] uncompressed;
@@ -419,7 +377,7 @@ public class CubeInstance extends RootPersistentEntity implements IRealization, 
         }
     }
 
-    public void setCuboidsRecommend(Set<Long> cuboids) {
+    void setCuboidsRecommend(HashSet<Long> cuboids) {
         if (cuboids == null)
             return;
         if (cuboids.isEmpty()) {
@@ -435,14 +393,6 @@ public class CubeInstance extends RootPersistentEntity implements IRealization, 
         }
     }
 
-    public long getCuboidLastOptimized() {
-        return cuboidLastOptimized;
-    }
-
-    public void setCuboidLastOptimized(long lastOptimized) {
-        this.cuboidLastOptimized = lastOptimized;
-    }
-
     /**
      * Get cuboid level count except base cuboid
      * @return
@@ -454,6 +404,7 @@ public class CubeInstance extends RootPersistentEntity implements IRealization, 
     @Override
     public CapabilityResult isCapable(SQLDigest digest) {
         CapabilityResult result = CubeCapabilityChecker.check(this, digest);
+        result = localCapacityCheck(digest, result);
         if (result.capable) {
             result.cost = getCost(digest);
             for (CapabilityInfluence i : result.influences) {
@@ -463,6 +414,15 @@ public class CubeInstance extends RootPersistentEntity implements IRealization, 
             result.cost = -1;
         }
         return result;
+    }
+
+    private CapabilityResult localCapacityCheck(SQLDigest digest, CapabilityResult originResult) {
+        if (this.getDescriptor().getConfig().isDisableCubeNoAggSQL()) {
+            CapabilityResult notCap = new CapabilityResult();
+            notCap.capable = false;
+            return digest.aggregations.isEmpty() ? notCap : originResult ;
+        }
+        return originResult;
     }
 
     public int getCost(SQLDigest digest) {
@@ -530,7 +490,7 @@ public class CubeInstance extends RootPersistentEntity implements IRealization, 
     }
 
     public SegmentRange autoMergeCubeSegments() throws IOException {
-        return segments.autoMergeCubeSegments(needAutoMerge(), getName(), getDescriptor().getAutoMergeTimeRanges(), getDescriptor().getVolatileRange());
+        return segments.autoMergeCubeSegments(needAutoMerge(), getName(), getDescriptor().getAutoMergeTimeRanges());
     }
 
     public Segments calculateToBeSegments(CubeSegment newSegment) {

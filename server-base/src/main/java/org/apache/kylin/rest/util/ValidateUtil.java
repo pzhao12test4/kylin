@@ -19,29 +19,18 @@
 package org.apache.kylin.rest.util;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
 
 import org.apache.commons.lang.StringUtils;
-import org.apache.kylin.common.persistence.AclEntity;
 import org.apache.kylin.metadata.model.ColumnDesc;
 import org.apache.kylin.metadata.model.TableDesc;
-import org.apache.kylin.metadata.project.ProjectInstance;
-import org.apache.kylin.rest.constant.Constant;
 import org.apache.kylin.rest.security.ManagedUser;
-import org.apache.kylin.rest.service.AccessService;
-import org.apache.kylin.rest.service.ProjectService;
 import org.apache.kylin.rest.service.TableService;
 import org.apache.kylin.rest.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.security.acls.domain.PrincipalSid;
-import org.springframework.security.acls.model.AccessControlEntry;
-import org.springframework.security.acls.model.Acl;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 
 import com.google.common.base.Preconditions;
@@ -57,14 +46,6 @@ public class ValidateUtil {
     @Qualifier("tableService")
     private TableService tableService;
 
-    @Autowired
-    @Qualifier("projectService")
-    private ProjectService projectService;
-
-    @Autowired
-    @Qualifier("accessService")
-    private AccessService accessService;
-
     public void validateUser(String username) {
         if (!userService.userExists(username)) {
             throw new RuntimeException("Operation failed, user:" + username + " not exists");
@@ -73,7 +54,7 @@ public class ValidateUtil {
 
     public void validateTable(String project, String table) throws IOException {
         List<TableDesc> tableDescs = tableService.getTableDescByProject(project, false);
-        Set<String> tables = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        List<String> tables = new ArrayList<>();
         for (TableDesc tableDesc : tableDescs) {
             tables.add(tableDesc.getDatabase() + "." + tableDesc.getName());
         }
@@ -85,7 +66,7 @@ public class ValidateUtil {
 
     public void validateColumn(String project, String table, Collection<String> columns) throws IOException {
         Preconditions.checkState(columns != null && columns.size() > 0);
-        Set<String> cols = getAllColumns(project, table);
+        List<String> cols = getAllColumns(project, table);
         for (String c : columns) {
             if (!cols.contains(c)) {
                 throw new RuntimeException("Operation failed, column:" + c + " not exists");
@@ -93,13 +74,13 @@ public class ValidateUtil {
         }
     }
 
-    private Set<String> getAllColumns(String project, String table) throws IOException {
+    private List<String> getAllColumns(String project, String table) throws IOException {
         List<TableDesc> tableDescByProject = tableService.getTableDescByProject(project, true);
-        Set<String> cols = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        List<String> cols = new ArrayList<>();
 
         for (TableDesc tableDesc : tableDescByProject) {
             String tbl = tableDesc.getDatabase() + "." + tableDesc.getName();
-            if (tbl.equalsIgnoreCase(table)) {
+            if (tbl.equals(table)) {
                 for (ColumnDesc column : tableDesc.getColumns()) {
                     cols.add(column.getName());
                 }
@@ -109,28 +90,16 @@ public class ValidateUtil {
         return cols;
     }
 
-    public Set<String> getAllUsers(String project) throws IOException {
-        Set<String> allUsers = new HashSet<>();
-        // add users that is global admin
-        for (ManagedUser managedUser : userService.listUsers()) {
-            if (managedUser.getAuthorities().contains(new SimpleGrantedAuthority(Constant.ROLE_ADMIN))) {
-                allUsers.add(managedUser.getUsername());
-            }
-        }
-
-        // add users that has project permission
-        ProjectInstance prj = projectService.getProjectManager().getProject(project);
-        AclEntity ae = accessService.getAclEntity("ProjectInstance", prj.getUuid());
-        Acl acl = accessService.getAcl(ae);
-        if (acl != null && acl.getEntries() != null) {
-            for (AccessControlEntry ace : acl.getEntries()) {
-                allUsers.add(((PrincipalSid) ace.getSid()).getPrincipal());
-            }
+    public List<String > getAllUsers() throws IOException {
+        List<ManagedUser> managedUsers = userService.listUsers();
+        List<String> allUsers = new ArrayList<>();
+        for (ManagedUser managedUser : managedUsers) {
+            allUsers.add(managedUser.getUsername());
         }
         return allUsers;
     }
 
-    public void validateArgs(String... args) {
+    public void vaildateArgs(String... args) {
         for (String arg : args) {
             Preconditions.checkState(!StringUtils.isEmpty(arg));
         }

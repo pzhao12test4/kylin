@@ -69,10 +69,7 @@ public class JobController extends BasicController {
             }
         }
 
-        JobTimeFilterEnum timeFilter = JobTimeFilterEnum.LAST_ONE_WEEK;
-        if (null != jobRequest.getTimeFilter()) {
-            timeFilter = JobTimeFilterEnum.getByCode(jobRequest.getTimeFilter());
-        }
+        JobTimeFilterEnum timeFilter = JobTimeFilterEnum.getByCode(jobRequest.getTimeFilter());
 
         try {
             jobInstanceList = jobService.searchJobs(jobRequest.getCubeName(), jobRequest.getProjectName(), statusList,

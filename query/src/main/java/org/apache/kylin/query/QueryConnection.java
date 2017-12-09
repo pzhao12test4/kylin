@@ -26,10 +26,12 @@ import java.util.Properties;
 
 import org.apache.calcite.jdbc.Driver;
 import org.apache.kylin.common.KylinConfig;
+import org.apache.kylin.metadata.project.ProjectInstance;
 import org.apache.kylin.query.schema.OLAPSchemaFactory;
+import org.apache.log4j.Logger;
 
 public class QueryConnection {
-    
+    private static final Logger logger = Logger.getLogger(QueryConnection.class);
     private static Boolean isRegister = false;
 
     public static Connection getConnection(String project) throws SQLException {
@@ -37,7 +39,8 @@ public class QueryConnection {
             DriverManager.registerDriver(new Driver());
             isRegister = true;
         }
-        File olapTmp = OLAPSchemaFactory.createTempOLAPJson(project, KylinConfig.getInstanceFromEnv());
+        File olapTmp = OLAPSchemaFactory.createTempOLAPJson(ProjectInstance.getNormalizedProjectName(project),
+                KylinConfig.getInstanceFromEnv());
         Properties info = new Properties();
         info.put("model", olapTmp.getAbsolutePath());
         return DriverManager.getConnection("jdbc:calcite:", info);

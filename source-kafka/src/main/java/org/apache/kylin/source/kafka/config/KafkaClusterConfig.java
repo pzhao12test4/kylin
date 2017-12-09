@@ -20,6 +20,9 @@ package org.apache.kylin.source.kafka.config;
 
 import java.util.List;
 
+import javax.annotation.Nullable;
+
+import org.apache.kafka.common.protocol.SecurityProtocol;
 import org.apache.kylin.common.persistence.JsonSerializer;
 import org.apache.kylin.common.persistence.RootPersistentEntity;
 import org.apache.kylin.common.persistence.Serializer;
@@ -27,6 +30,10 @@ import org.apache.kylin.common.persistence.Serializer;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Function;
+import com.google.common.collect.Lists;
+
+import kafka.cluster.Broker;
 
 /**
  */
@@ -52,4 +59,13 @@ public class KafkaClusterConfig extends RootPersistentEntity {
         return brokerConfigs;
     }
 
+    public List<Broker> getBrokers() {
+        return Lists.transform(brokerConfigs, new Function<BrokerConfig, Broker>() {
+            @Nullable
+            @Override
+            public Broker apply(BrokerConfig input) {
+                return new Broker(input.getId(), input.getHost(), input.getPort(), SecurityProtocol.PLAINTEXT);
+            }
+        });
+    }
 }

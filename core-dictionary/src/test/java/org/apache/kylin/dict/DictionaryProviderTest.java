@@ -84,7 +84,7 @@ public class DictionaryProviderTest extends LocalFileMetadataTestCase{
 
     private Dictionary<String> getDict(DataType type, Iterator<String> values) throws Exception {
         IDictionaryBuilder builder = DictionaryGenerator.newDictionaryBuilder(type);
-        builder.init(null, 0, null);
+        builder.init(null, 0);
         while (values.hasNext()) {
             builder.addValue(values.next());
         }

@@ -25,6 +25,7 @@ import static org.junit.Assert.assertTrue;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.kylin.common.util.JsonUtil;
 import org.apache.kylin.common.util.LocalFileMetadataTestCase;
+import org.apache.kylin.metadata.MetadataManager;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -44,19 +45,19 @@ public class DataModelDescTest extends LocalFileMetadataTestCase {
 
     @Test
     public void loadInnerModel() {
-        DataModelDesc model = DataModelManager.getInstance(getTestConfig()).getDataModelDesc("ci_inner_join_model");
+        DataModelDesc model = MetadataManager.getInstance(getTestConfig()).getDataModelDesc("ci_inner_join_model");
         assertNotNull(model);
     }
 
     @Test
     public void loadLeftModel() {
-        DataModelDesc model = DataModelManager.getInstance(getTestConfig()).getDataModelDesc("ci_left_join_model");
+        DataModelDesc model = MetadataManager.getInstance(getTestConfig()).getDataModelDesc("ci_left_join_model");
         assertNotNull(model);
     }
 
     @Test
     public void testNoDupColInDimAndMeasure() {
-        DataModelDesc model = DataModelManager.getInstance(getTestConfig()).getDataModelDesc("test_kylin_inner_join_model_desc");
+        DataModelDesc model = MetadataManager.getInstance(getTestConfig()).getDataModelDesc("test_kylin_inner_join_model_desc");
         String[] metrics = model.getMetrics();
         TblColRef col = model.findColumn("edw.test_cal_dt.cal_dt");
         assertTrue(metrics.length == 2);
@@ -65,7 +66,7 @@ public class DataModelDescTest extends LocalFileMetadataTestCase {
 
     @Test
     public void testGetCopyOf() throws JsonProcessingException {
-        DataModelDesc desc = DataModelManager.getInstance(getTestConfig()).getDataModelDesc("test_kylin_inner_join_model_desc");
+        DataModelDesc desc = MetadataManager.getInstance(getTestConfig()).getDataModelDesc("test_kylin_inner_join_model_desc");
         DataModelDesc copyDesc = DataModelDesc.getCopyOf(desc);
 
         // uuid is different, set to equals for json comparison
@@ -80,7 +81,7 @@ public class DataModelDescTest extends LocalFileMetadataTestCase {
 
     @Test
     public void testPartitionDescCopyOf() throws JsonProcessingException {
-        PartitionDesc desc = DataModelManager.getInstance(getTestConfig()).getDataModelDesc("test_kylin_inner_join_model_desc").partitionDesc;
+        PartitionDesc desc = MetadataManager.getInstance(getTestConfig()).getDataModelDesc("test_kylin_inner_join_model_desc").partitionDesc;
         PartitionDesc copyDesc = PartitionDesc.getCopyOf(desc);
 
         String descStr = JsonUtil.writeValueAsIndentString(desc);

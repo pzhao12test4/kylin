@@ -31,12 +31,10 @@ import javax.annotation.Nullable;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.kylin.common.KylinConfig;
 import org.apache.kylin.common.util.AbstractApplication;
 import org.apache.kylin.common.util.CliCommandExecutor;
@@ -73,8 +71,8 @@ public class StorageCleanupJob extends AbstractApplication {
 
     protected boolean delete = false;
     protected boolean force = false;
-    protected static ExecutableManager executableManager = ExecutableManager.getInstance(KylinConfig
-            .getInstanceFromEnv());
+    protected static ExecutableManager executableManager = ExecutableManager
+            .getInstance(KylinConfig.getInstanceFromEnv());
 
     protected void cleanUnusedHBaseTables() throws IOException {
         KylinConfig config = KylinConfig.getInstanceFromEnv();
@@ -107,19 +105,15 @@ public class StorageCleanupJob extends AbstractApplication {
         delete = Boolean.parseBoolean(optionsHelper.getOptionValue(OPTION_DELETE));
         force = Boolean.parseBoolean(optionsHelper.getOptionValue(OPTION_FORCE));
         cleanUnusedIntermediateHiveTable();
-        KylinConfig config = KylinConfig.getInstanceFromEnv();
-        if (StringUtils.isNotEmpty(config.getHBaseClusterFs())) {
-            cleanUnusedHdfsFiles(HBaseConfiguration.create());
-        }
-        Configuration conf = HadoopUtil.getCurrentConfiguration();
-        cleanUnusedHdfsFiles(conf);
+        cleanUnusedHdfsFiles();
         cleanUnusedHBaseTables();
     }
 
-    private void cleanUnusedHdfsFiles(Configuration conf) throws IOException {
-
+    private void cleanUnusedHdfsFiles() throws IOException {
+        Configuration conf = HadoopUtil.getCurrentConfiguration();
         JobEngineConfig engineConfig = new JobEngineConfig(KylinConfig.getInstanceFromEnv());
         CubeManager cubeMgr = CubeManager.getInstance(KylinConfig.getInstanceFromEnv());
+
         FileSystem fs = HadoopUtil.getWorkingFileSystem(conf);
         List<String> allHdfsPathsNeedToBeDeleted = new ArrayList<String>();
         // GlobFilter filter = new

@@ -34,7 +34,7 @@ import org.apache.kylin.common.KylinConfig;
 import org.apache.kylin.common.persistence.JsonSerializer;
 import org.apache.kylin.common.persistence.ResourceStore;
 import org.apache.kylin.common.persistence.Serializer;
-import org.apache.kylin.metadata.TableMetadataManager;
+import org.apache.kylin.metadata.MetadataManager;
 import org.apache.kylin.metadata.badquery.BadQueryHistoryManager;
 import org.apache.kylin.metadata.cachesync.Broadcaster;
 import org.apache.kylin.metadata.cachesync.Broadcaster.Event;
@@ -172,15 +172,6 @@ public class ProjectManager {
         return projectMap.get(projectName);
     }
 
-    public ProjectInstance getPrjByUuid(String uuid) {
-        Collection<ProjectInstance> copy = new ArrayList<ProjectInstance>(projectMap.values());
-        for (ProjectInstance prj : copy) {
-            if (uuid.equals(prj.getUuid()))
-                return prj;
-        }
-        return null;
-    }
-
     public ProjectInstance createProject(String projectName, String owner, String description,
             LinkedHashMap<String, String> overrideProps) throws IOException {
         logger.info("Creating project " + projectName);
@@ -205,11 +196,6 @@ public class ProjectManager {
 
         if (projectInstance == null) {
             throw new IllegalStateException("The project named " + projectName + " does not exist");
-        }
-
-        if (projectInstance.getModels().size() != 0) {
-            throw new IllegalStateException("The project named " + projectName
-                    + " can not be deleted because there's still model in it. Delete them first.");
         }
 
         if (projectInstance.getRealizationCount(null) != 0) {
@@ -317,15 +303,16 @@ public class ProjectManager {
         }
     }
 
-    private ProjectInstance addModelToProject(String modelName, String prjName) throws IOException {
-        ProjectInstance prj = getProject(prjName);
-        if (prj == null) {
-            throw new IllegalArgumentException("Project " + prjName + " does not exist.");
+    private ProjectInstance addModelToProject(String modelName, String project) throws IOException {
+        String newProjectName = ProjectInstance.getNormalizedProjectName(project);
+        ProjectInstance newProject = getProject(newProjectName);
+        if (newProject == null) {
+            throw new IllegalArgumentException("Project " + newProjectName + " does not exist.");
         }
-        prj.addModel(modelName);
-        updateProject(prj);
+        newProject.addModel(modelName);
+        updateProject(newProject);
 
-        return prj;
+        return newProject;
     }
 
     public ProjectInstance moveRealizationToProject(RealizationType type, String realizationName, String newProjectName,
@@ -361,7 +348,7 @@ public class ProjectManager {
     }
 
     public ProjectInstance addTableDescToProject(String[] tableIdentities, String projectName) throws IOException {
-        TableMetadataManager metaMgr = getTableManager();
+        MetadataManager metaMgr = getMetadataManager();
         ProjectInstance projectInstance = getProject(projectName);
         for (String tableId : tableIdentities) {
             TableDesc table = metaMgr.getTableDesc(tableId, projectName);
@@ -376,7 +363,7 @@ public class ProjectManager {
     }
 
     public void removeTableDescFromProject(String tableIdentities, String projectName) throws IOException {
-        TableMetadataManager metaMgr = getTableManager();
+        MetadataManager metaMgr = getMetadataManager();
         ProjectInstance projectInstance = getProject(projectName);
         TableDesc table = metaMgr.getTableDesc(tableIdentities, projectName);
         if (table == null) {
@@ -388,7 +375,7 @@ public class ProjectManager {
     }
 
     public ProjectInstance addExtFilterToProject(String[] filters, String projectName) throws IOException {
-        TableMetadataManager metaMgr = getTableManager();
+        MetadataManager metaMgr = getMetadataManager();
         ProjectInstance projectInstance = getProject(projectName);
         for (String filterName : filters) {
             ExternalFilterDesc extFilter = metaMgr.getExtFilterDesc(filterName);
@@ -403,7 +390,7 @@ public class ProjectManager {
     }
 
     public void removeExtFilterFromProject(String filterName, String projectName) throws IOException {
-        TableMetadataManager metaMgr = getTableManager();
+        MetadataManager metaMgr = getMetadataManager();
         ProjectInstance projectInstance = getProject(projectName);
         ExternalFilterDesc filter = metaMgr.getExtFilterDesc(filterName);
         if (filter == null) {
@@ -453,15 +440,6 @@ public class ProjectManager {
             }
         }
         return projects;
-    }
-
-    public ProjectInstance getProjectByUuid(String uuid) {
-        Collection<ProjectInstance> copy = new ArrayList<ProjectInstance>(projectMap.values());
-        for (ProjectInstance project : copy) {
-            if (uuid.equals(project.getUuid()))
-                return project;
-        }
-        return null;
     }
 
     public ExternalFilterDesc getExternalFilterDesc(String project, String extFilter) {
@@ -531,8 +509,8 @@ public class ProjectManager {
         return ResourceStore.getStore(this.config);
     }
 
-    TableMetadataManager getTableManager() {
-        return TableMetadataManager.getInstance(config);
+    MetadataManager getMetadataManager() {
+        return MetadataManager.getInstance(config);
     }
 
     private String norm(String project) {

@@ -115,7 +115,7 @@ public class RowKeySplitter implements java.io.Serializable {
         offset += RowConstants.ROWKEY_CUBOIDID_LEN;
 
         long lastSplittedCuboidId = Bytes.toLong(cuboidIdSplit.value, 0, cuboidIdSplit.length);
-        Cuboid cuboid = Cuboid.findForMandatory(cubeDesc, lastSplittedCuboidId);
+        Cuboid cuboid = Cuboid.findById(cubeSegment, lastSplittedCuboidId);
 
         // rowkey columns
         for (int i = 0; i < cuboid.getColumns().size(); i++) {

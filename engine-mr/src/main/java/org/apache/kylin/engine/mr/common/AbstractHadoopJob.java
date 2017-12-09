@@ -24,15 +24,14 @@ package org.apache.kylin.engine.mr.common;
  */
 
 import static org.apache.hadoop.util.StringUtils.formatTime;
-import static org.apache.kylin.engine.mr.common.JobRelatedMetaUtil.collectCubeMetadata;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -99,8 +98,6 @@ public abstract class AbstractHadoopJob extends Configured implements Tool {
             .hasArg().isRequired(false).withDescription("Input format").create(BatchConstants.ARG_INPUT_FORMAT);
     protected static final Option OPTION_OUTPUT_PATH = OptionBuilder.withArgName(BatchConstants.ARG_OUTPUT).hasArg()
             .isRequired(true).withDescription("Output path").create(BatchConstants.ARG_OUTPUT);
-    protected static final Option OPTION_DICT_PATH = OptionBuilder.withArgName(BatchConstants.ARG_DICT_PATH).hasArg()
-            .isRequired(false).withDescription("Dict path").create(BatchConstants.ARG_DICT_PATH);
     protected static final Option OPTION_NCUBOID_LEVEL = OptionBuilder.withArgName(BatchConstants.ARG_LEVEL).hasArg()
             .isRequired(true).withDescription("N-Cuboid build level, e.g. 1, 2, 3...").create(BatchConstants.ARG_LEVEL);
     protected static final Option OPTION_PARTITION_FILE_PATH = OptionBuilder.withArgName(BatchConstants.ARG_PARTITION)
@@ -116,11 +113,6 @@ public abstract class AbstractHadoopJob extends Configured implements Tool {
     protected static final Option OPTION_STATISTICS_SAMPLING_PERCENT = OptionBuilder
             .withArgName(BatchConstants.ARG_STATS_SAMPLING_PERCENT).hasArg().isRequired(false)
             .withDescription("Statistics sampling percentage").create(BatchConstants.ARG_STATS_SAMPLING_PERCENT);
-    protected static final Option OPTION_CUBOID_MODE = OptionBuilder.withArgName(BatchConstants.ARG_CUBOID_MODE)
-            .hasArg().isRequired(false).withDescription("Cuboid Mode").create(BatchConstants.ARG_CUBOID_MODE);
-    protected static final Option OPTION_NEED_UPDATE_BASE_CUBOID_SHARD = OptionBuilder
-            .withArgName(BatchConstants.ARG_UPDATE_SHARD).hasArg().isRequired(false)
-            .withDescription("If need to update base cuboid shard").create(BatchConstants.ARG_UPDATE_SHARD);
 
     private static final String MAP_REDUCE_CLASSPATH = "mapreduce.application.classpath";
 
@@ -272,9 +264,15 @@ public abstract class AbstractHadoopJob extends Configured implements Tool {
         StringUtil.appendWithSeparator(kylinDependency, mrLibDir);
 
         setJobTmpJarsAndFiles(job, kylinDependency.toString());
+
+        overrideJobConfig(job.getConfiguration(), kylinConf.getMRConfigOverride());
     }
 
-
+    private void overrideJobConfig(Configuration jobConf, Map<String, String> override) {
+        for (Entry<String, String> entry : override.entrySet()) {
+            jobConf.set(entry.getKey(), entry.getValue());
+        }
+    }
 
     private String filterKylinHiveDependency(String kylinHiveDependency, KylinConfig config) {
         if (StringUtils.isBlank(kylinHiveDependency))
@@ -468,9 +466,7 @@ public abstract class AbstractHadoopJob extends Configured implements Tool {
         }
     }
 
-    public static KylinConfig loadKylinConfigFromHdfs(SerializableConfiguration conf, String uri) {
-        HadoopUtil.setCurrentConfiguration(conf.get());
-
+    public static KylinConfig loadKylinConfigFromHdfs(String uri) {
         if (uri == null)
             throw new IllegalArgumentException("meta url should not be null");
 
@@ -501,47 +497,23 @@ public abstract class AbstractHadoopJob extends Configured implements Tool {
     }
 
     protected void attachCubeMetadata(CubeInstance cube, Configuration conf) throws IOException {
-        dumpKylinPropsAndMetadata(cube.getProject(), collectCubeMetadata(cube), cube.getConfig(),
+        dumpKylinPropsAndMetadata(cube.getProject(), JobRelatedMetaUtil.collectCubeMetadata(cube), cube.getConfig(),
                 conf);
     }
 
     protected void attachCubeMetadataWithDict(CubeInstance cube, Configuration conf) throws IOException {
         Set<String> dumpList = new LinkedHashSet<>();
-        dumpList.addAll(collectCubeMetadata(cube));
+        dumpList.addAll(JobRelatedMetaUtil.collectCubeMetadata(cube));
         for (CubeSegment segment : cube.getSegments()) {
             dumpList.addAll(segment.getDictionaryPaths());
         }
         dumpKylinPropsAndMetadata(cube.getProject(), dumpList, cube.getConfig(), conf);
     }
 
-    protected void attachSegmentsMetadataWithDict(List<CubeSegment> segments, Configuration conf) throws IOException {
-        Set<String> dumpList = new LinkedHashSet<>();
-        CubeInstance cube = segments.get(0).getCubeInstance();
-        dumpList.addAll(collectCubeMetadata(cube));
-        for (CubeSegment segment : segments) {
-            dumpList.addAll(segment.getDictionaryPaths());
-        }
-        dumpKylinPropsAndMetadata(cube.getProject(), dumpList, cube.getConfig(), conf);
-    }
-
     protected void attachSegmentMetadataWithDict(CubeSegment segment, Configuration conf) throws IOException {
-        attachSegmentMetadata(segment, conf, true, false);
-    }
-
-    protected void attachSegmentMetadataWithAll(CubeSegment segment, Configuration conf) throws IOException {
-        attachSegmentMetadata(segment, conf, true, true);
-    }
-
-    protected void attachSegmentMetadata(CubeSegment segment, Configuration conf, boolean ifDictIncluded,
-            boolean ifStatsIncluded) throws IOException {
         Set<String> dumpList = new LinkedHashSet<>();
-        dumpList.addAll(collectCubeMetadata(segment.getCubeInstance()));
-        if (ifDictIncluded) {
-            dumpList.addAll(segment.getDictionaryPaths());
-        }
-        if (ifStatsIncluded) {
-            dumpList.add(segment.getStatisticsResourcePath());
-        }
+        dumpList.addAll(JobRelatedMetaUtil.collectCubeMetadata(segment.getCubeInstance()));
+        dumpList.addAll(segment.getDictionaryPaths());
         dumpKylinPropsAndMetadata(segment.getProject(), dumpList, segment.getConfig(), conf);
     }
 
@@ -617,12 +589,9 @@ public abstract class AbstractHadoopJob extends Configured implements Tool {
         for (InputSplit split : input.getSplits(job)) {
             mapInputBytes += split.getLength();
         }
-        
-        // 0 input bytes is possible when the segment range hits no partition on a partitioned hive table (KYLIN-2470) 
         if (mapInputBytes == 0) {
-            logger.warn("Map input splits are 0 bytes, something is wrong?");
+            throw new IllegalArgumentException("Map input splits are 0 bytes, something is wrong!");
         }
-        
         double totalMapInputMB = (double) mapInputBytes / 1024 / 1024;
         return totalMapInputMB;
     }

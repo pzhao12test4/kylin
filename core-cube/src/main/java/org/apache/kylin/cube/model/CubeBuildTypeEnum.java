@@ -35,10 +35,5 @@ public enum CubeBuildTypeEnum {
     /**
      * refresh segments
      */
-    REFRESH,
-
-    /**
-     * checkpoint for set of other jobs
-     */
-    CHECKPOINT
+    REFRESH
 }

@@ -133,10 +133,10 @@ public class MergeStatisticsStep extends AbstractExecutable {
                 IOUtils.closeStream(is);
             }
 
-            return ExecuteResult.createSucceed();
+            return new ExecuteResult(ExecuteResult.State.SUCCEED, "succeed");
         } catch (IOException e) {
             logger.error("fail to merge cuboid statistics", e);
-            return ExecuteResult.createError(e);
+            return new ExecuteResult(ExecuteResult.State.ERROR, e.getLocalizedMessage());
         }
     }
 

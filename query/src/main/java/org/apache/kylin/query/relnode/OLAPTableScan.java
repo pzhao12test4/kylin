@@ -216,9 +216,9 @@ public class OLAPTableScan extends TableScan implements OLAPRel, EnumerableRel {
             implementor.allocateContext();
         }
 
+        columnRowType = buildColumnRowType();
         context = implementor.getContext();
         context.allTableScans.add(this);
-        columnRowType = buildColumnRowType();
 
         if (context.olapSchema == null) {
             OLAPSchema schema = olapTable.getSchema();
@@ -249,7 +249,7 @@ public class OLAPTableScan extends TableScan implements OLAPRel, EnumerableRel {
      *      * OLAPToEnumerableConverter and OLAPUnionRel -> require column collection
      */
     private boolean needCollectionColumns(OLAPImplementor implementor) {
-        Stack<RelNode> allParents = implementor.getParentNodeStack();
+        Stack<RelNode> allParents = implementor.getParentStack();
         int index = allParents.size() - 1;
 
         while (index >= 0) {
@@ -262,11 +262,6 @@ public class OLAPTableScan extends TableScan implements OLAPRel, EnumerableRel {
                 return true;
             }
 
-            OLAPRel olapParent = (OLAPRel) allParents.get(index);
-            if (olapParent.getContext() != null && olapParent.getContext() != this.context) {
-                // if the whole context has not projection, let table scan take care of itself
-                break;
-            }
             index--;
         }
 
@@ -278,7 +273,7 @@ public class OLAPTableScan extends TableScan implements OLAPRel, EnumerableRel {
     }
 
     private ColumnRowType buildColumnRowType() {
-        this.alias = context.allTableScans.size() + "_" + Integer.toHexString(System.identityHashCode(this));
+        this.alias = Integer.toHexString(System.identityHashCode(this));
         TableRef tableRef = TblColRef.tableForUnknownModel(this.alias, olapTable.getSourceTable());
 
         List<TblColRef> columns = new ArrayList<TblColRef>();

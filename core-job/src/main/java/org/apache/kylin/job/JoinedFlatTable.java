@@ -25,7 +25,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.kylin.common.KylinConfig;
 import org.apache.kylin.cube.CubeSegment;
 import org.apache.kylin.job.engine.JobEngineConfig;
@@ -58,9 +57,8 @@ public class JoinedFlatTable {
     public static String generateCreateTableStatement(IJoinedFlatTableDesc flatDesc, String storageDfsDir) {
         return generateCreateTableStatement(flatDesc, storageDfsDir, "SEQUENCEFILE");
     }
-
-    public static String generateCreateTableStatement(IJoinedFlatTableDesc flatDesc, String storageDfsDir,
-            String format, String filedDelimiter) {
+    
+    public static String generateCreateTableStatement(IJoinedFlatTableDesc flatDesc, String storageDfsDir, String format) {
         StringBuilder ddl = new StringBuilder();
 
         ddl.append("CREATE EXTERNAL TABLE IF NOT EXISTS " + flatDesc.getTableName() + "\n");
@@ -74,19 +72,12 @@ public class JoinedFlatTable {
             ddl.append(colName(col) + " " + getHiveDataType(col.getDatatype()) + "\n");
         }
         ddl.append(")" + "\n");
-        if ("TEXTFILE".equals(format)) {
-            ddl.append("ROW FORMAT DELIMITED FIELDS TERMINATED BY '" + filedDelimiter + "'\n");
+        if ("TEXTFILE".equals(format)){
+            ddl.append("ROW FORMAT DELIMITED FIELDS TERMINATED BY ','" + "\n");
         }
         ddl.append("STORED AS " + format + "\n");
         ddl.append("LOCATION '" + getTableDir(flatDesc, storageDfsDir) + "';").append("\n");
-        ddl.append("ALTER TABLE " + flatDesc.getTableName() + " SET TBLPROPERTIES('auto.purge'='true');\n");
         return ddl.toString();
-    }
-
-    public static String generateCreateTableStatement(IJoinedFlatTableDesc flatDesc, String storageDfsDir,
-            String format) {
-        String fieldDelimiter = flatDesc.getDataModel().getConfig().getSourceFieldDelimiter();
-        return generateCreateTableStatement(flatDesc, storageDfsDir, format, fieldDelimiter);
     }
 
     public static String generateDropTableStatement(IJoinedFlatTableDesc flatDesc) {
@@ -101,41 +92,37 @@ public class JoinedFlatTable {
         if (null == segment) {
             kylinConfig = KylinConfig.getInstanceFromEnv();
         } else {
-            kylinConfig = (flatDesc.getSegment()).getConfig();
+            kylinConfig = ((CubeSegment) flatDesc.getSegment()).getConfig();
         }
 
         if (kylinConfig.isAdvancedFlatTableUsed()) {
             try {
                 Class advancedFlatTable = Class.forName(kylinConfig.getAdvancedFlatTableClass());
-                Method method = advancedFlatTable.getMethod("generateInsertDataStatement", IJoinedFlatTableDesc.class,
-                        JobEngineConfig.class);
+                Method method = advancedFlatTable.getMethod("generateInsertDataStatement", IJoinedFlatTableDesc.class, JobEngineConfig.class);
                 return (String) method.invoke(null, flatDesc);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }
 
-        return "INSERT OVERWRITE TABLE " + flatDesc.getTableName() + " " + generateSelectDataStatement(flatDesc)
-                + ";\n";
+        return "INSERT OVERWRITE TABLE " + flatDesc.getTableName() + " " + generateSelectDataStatement(flatDesc) + ";\n";
     }
 
-    public static String generateInsertPartialDataStatement(IJoinedFlatTableDesc flatDesc) {
-        return "INSERT OVERWRITE TABLE " + flatDesc.getTableName() + " " + generateSelectDataStatement(flatDesc)
-                + ";\n";
+    public static String generateInsertPartialDataStatement(IJoinedFlatTableDesc flatDesc, String statement) {
+        return "INSERT OVERWRITE TABLE " + flatDesc.getTableName() + " " + generateSelectDataStatement(flatDesc) + statement + ";\n";
     }
 
     public static String generateSelectDataStatement(IJoinedFlatTableDesc flatDesc) {
         return generateSelectDataStatement(flatDesc, false, null);
     }
-
-    public static String generateSelectDataStatement(IJoinedFlatTableDesc flatDesc, boolean singleLine,
-            String[] skipAs) {
+    
+    public static String generateSelectDataStatement(IJoinedFlatTableDesc flatDesc, boolean singleLine, String[] skipAs) {
         final String sep = singleLine ? " " : "\n";
         final List<String> skipAsList = (skipAs == null) ? new ArrayList<String>() : Arrays.asList(skipAs);
-
+        
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT" + sep);
-
+        
         for (int i = 0; i < flatDesc.getAllColumns().size(); i++) {
             TblColRef col = flatDesc.getAllColumns().get(i);
             if (i > 0) {
@@ -157,12 +144,11 @@ public class JoinedFlatTable {
         final StringBuilder sql = new StringBuilder();
         final TableRef rootTbl = flatDesc.getDataModel().getRootFactTable();
         sql.append("dfs -mkdir -p " + outputDir + ";\n");
-        sql.append("INSERT OVERWRITE DIRECTORY '" + outputDir + "' SELECT count(*) FROM " + rootTbl.getTableIdentity()
-                + " " + rootTbl.getAlias() + "\n");
+        sql.append("INSERT OVERWRITE DIRECTORY '" + outputDir + "' SELECT count(*) FROM " + rootTbl.getTableIdentity() + " " + rootTbl.getAlias() + "\n");
         appendWhereStatement(flatDesc, sql);
         return sql.toString();
     }
-
+    
     public static void appendJoinStatement(IJoinedFlatTableDesc flatDesc, StringBuilder sql, boolean singleLine) {
         final String sep = singleLine ? " " : "\n";
         Set<TableRef> dimTableCache = new HashSet<>();
@@ -213,16 +199,19 @@ public class JoinedFlatTable {
     private static void appendWhereStatement(IJoinedFlatTableDesc flatDesc, StringBuilder sql) {
         appendWhereStatement(flatDesc, sql, false);
     }
-
+    
     private static void appendWhereStatement(IJoinedFlatTableDesc flatDesc, StringBuilder sql, boolean singleLine) {
         final String sep = singleLine ? " " : "\n";
-
+        
+        boolean hasCondition = false;
         StringBuilder whereBuilder = new StringBuilder();
-        whereBuilder.append("WHERE 1=1");
+        whereBuilder.append("WHERE");
 
         DataModelDesc model = flatDesc.getDataModel();
-        if (StringUtils.isNotEmpty(model.getFilterCondition())) {
-            whereBuilder.append(" AND (").append(model.getFilterCondition()).append(") ");
+
+        if (model.getFilterCondition() != null && model.getFilterCondition().equals("") == false) {
+            whereBuilder.append(" (").append(model.getFilterCondition()).append(") ");
+            hasCondition = true;
         }
 
         if (flatDesc.getSegment() != null) {
@@ -231,15 +220,17 @@ public class JoinedFlatTable {
                 SegmentRange segRange = flatDesc.getSegRange();
 
                 if (segRange != null && !segRange.isInfinite()) {
-                    whereBuilder.append(" AND (");
-                    whereBuilder.append(
-                            partDesc.getPartitionConditionBuilder().buildDateRangeCondition(partDesc, segRange));
+                    whereBuilder.append(hasCondition ? " AND (" : " (");
+                    whereBuilder.append(partDesc.getPartitionConditionBuilder().buildDateRangeCondition(partDesc, segRange));
                     whereBuilder.append(")" + sep);
+                    hasCondition = true;
                 }
             }
         }
 
-        sql.append(whereBuilder.toString());
+        if (hasCondition) {
+            sql.append(whereBuilder.toString());
+        }
     }
 
     private static String colName(TblColRef col) {
@@ -247,19 +238,10 @@ public class JoinedFlatTable {
     }
 
     private static String getHiveDataType(String javaDataType) {
-        String originDataType = javaDataType.toLowerCase();
-        String hiveDataType;
-        if (originDataType.startsWith("varchar")) {
-            hiveDataType = "string";
-        } else if (originDataType.startsWith("integer")) {
-            hiveDataType = "int";
-        } else if (originDataType.startsWith("bigint")) {
-            hiveDataType = "bigint";
-        } else {
-            hiveDataType = originDataType;
-        }
+        String hiveDataType = javaDataType.toLowerCase().startsWith("varchar") ? "string" : javaDataType;
+        hiveDataType = javaDataType.toLowerCase().startsWith("integer") ? "int" : hiveDataType;
 
-        return hiveDataType;
+        return hiveDataType.toLowerCase();
     }
 
     public static String generateRedistributeFlatTableStatement(IJoinedFlatTableDesc flatDesc) {

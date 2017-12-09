@@ -29,7 +29,7 @@ import org.apache.kylin.common.persistence.ResourceStore;
 import org.apache.kylin.cube.CubeDescManager;
 import org.apache.kylin.cube.CubeManager;
 import org.apache.kylin.metadata.MetadataConstants;
-import org.apache.kylin.metadata.model.DataModelManager;
+import org.apache.kylin.metadata.MetadataManager;
 import org.apache.kylin.metadata.project.ProjectManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,7 +63,7 @@ public abstract class CubeMetadataUpgrade {
     }
 
     public void clear() {
-        DataModelManager.clearCache();
+        MetadataManager.clearCache();
         CubeDescManager.clearCache();
         CubeManager.clearCache();
         ProjectManager.clearCache();
@@ -73,8 +73,8 @@ public abstract class CubeMetadataUpgrade {
         logger.info("=================================================================");
         logger.info("The changes are applied, now it's time to verify the new metadata store by reloading all metadata:");
         logger.info("=================================================================");
-        DataModelManager.clearCache();
-        DataModelManager.getInstance(config);
+        MetadataManager.clearCache();
+        MetadataManager.getInstance(config);
         CubeDescManager.clearCache();
         CubeDescManager.getInstance(config);
         CubeManager.clearCache();

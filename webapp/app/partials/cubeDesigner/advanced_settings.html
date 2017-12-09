@@ -33,15 +33,7 @@
                  class="table table-hover list">
             <tr class="row">
               <th class="col-xs-1">ID</th>
-              <th class="col-xs-3">
-                <span>Aggregation Groups</span>
-                <span style="margin-left:42px">
-                  <i kylinpopover placement="left" title="Max Dimension Combination" template="dimCapTip.html" class="fa fa-info-circle"></i>
-                  Max Dimension Combination:
-                  <input onInput="this.value=this.value.replace(/[^0-9]/g, '')" type="text" ng-model="dim_cap" ng-change="changeDimCap(dim_cap)" ng-disabled="state.mode !== 'edit'" style="margin-left:5px; width:20px;">
-                </span>
-              </th>
-              <th></th>
+              <th class="col-xs-11">Aggregation Groups</th>
               <th ng-if="state.mode=='edit'" class="col-xs-1"></th>
             </tr>
 
@@ -297,75 +289,6 @@
               </div>
           </div>
         </div>
-        <!--Eidt Mandatory Cuboids-->
-        <div class="form-group large-popover" ng-if="state.mode=='edit' || (cubeMetaFrame.mandatory_dimension_set_list.length > 0 && state.mode!=='edit')">
-          <h3 style="margin-left:42px">Mandatory Cuboids</h3>
-          <div style="margin-left:42px;">
-            <div class="box-body">
-              <!-- view mode-->
-              <table ng-if="cubeMetaFrame.mandatory_dimension_set_list.length > 0 && state.mode!=='edit'" class="table table-hover table-bordered list" style="table-layout: fixed;margin-left:42px;width:92%;">
-                <thead>
-                  <tr>
-                    <th>Cuboids</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr ng-repeat="dimensionSet in cubeMetaFrame.mandatory_dimension_set_list">
-                    <td>
-                      <p>{{dimensionSet}}</p>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              <!-- edit mode-->
-              <table ng-if="state.mode=='edit'" class="table table-hover table-bordered list" style="table-layout: fixed;margin-left:42px;width:92%;">
-                <thead>
-                  <tr>
-                    <th>Cuboids</th>
-                    <th style="width:5%"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr ng-repeat="dimensionSet in cubeMetaFrame.mandatory_dimension_set_list">
-                    <td>
-                      <ui-select multiple ng-model="dimensionSet" theme="bootstrap" sortable="true" close-on-select="false" class="form-control">
-                        <ui-select-match placeholder="Select Dimension...">{{$item.column}}</ui-select-match>
-                        <ui-select-choices repeat="dimension.column as dimension in cubeMetaFrame.rowkey.rowkey_columns | filter:$select.search">
-                          <div ng-bind-html="dimension.column | highlight: $select.search"></div>
-                        </ui-select-choices>
-                      </ui-select>
-                    </td>
-                    <td>
-                      <button class="btn btn-xs btn-info" ng-click="removeDimensionSet($index)"><i class="fa fa-minus"></i>
-                      </button>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <ui-select multiple ng-model="mandatoryDimensionSet.select" theme="bootstrap" sortable="true" close-on-select="false" class="form-control">
-                        <ui-select-match placeholder="Select Dimension...">{{$item.column}}</ui-select-match>
-                        <ui-select-choices repeat="dimension.column as dimension in cubeMetaFrame.rowkey.rowkey_columns | filter:$select.search">
-                          <div ng-bind-html="dimension.column | highlight: $select.search"></div>
-                        </ui-select-choices>
-                      </ui-select>
-                    </td>
-                    <td>
-                      <button class="btn btn-xs btn-info" ng-click="addDimensionSet()"><i class="fa fa-plus"></i>
-                      </button>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td colspan="2">
-                      <label>Import cuboids from file:</label>
-                      <input type="file" name="cuboids" id="cuboids" style="display: inline;"/>
-                      <button class="btn btn-xs btn-info" ng-click="uploadMandatoryDimensionSetList()">Upload</button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
         <!--Cube Engine-->
         <div class="form-group large-popover" style="margin-bottom:30px;">
           <h3 style="margin-left:42px;margin-bottom:30px;">Cube Engine  <i kylinpopover placement="right" title="Cube Engine" template="CubeEngineTip.html" class="fa fa-info-circle"></i></h3>
@@ -379,7 +302,7 @@
                 <option value="">--Select Engine Type--</option>
               </select>
               <span ng-if="state.mode=='view'&&cubeMetaFrame.engine_type==2">MapReduce</span>
-              <span ng-if="state.mode=='view'&&cubeMetaFrame.engine_type==4">Spark</span>
+              <span ng-if="state.mode=='view'&&cubeMetaFrame.engine_type==4">Spark(Beta)</span>
             </div>
           </div>
         </div>
@@ -588,14 +511,6 @@
    </ng-form>
  </div>
 
-<script type="text/ng-template" id="dimCapTip.html">
-  <div>
-    <ol style="font-size:12px;">
-      <li>Dimension limitations mean max dimensions may be contained within a group of SQL queries.</li>
-      <li>In a set of queries, if each query required the number of dimensions is not more than five, you can set 5 here.</li>
-    </ol>
-  </div>
-</script>
 <script type="text/ng-template" id="rowkeyTip.html">
   <div>
     <h4>Shard By this column?</h4>
@@ -619,18 +534,7 @@
 </script>
 <script type="text/ng-template" id="AdvancedDictionariesTip.html">
   <div>
-    <h4>Special settings for dictionaries.</h4>
-    <ol>
-      <li>
-        "Global Dictionary" is the default dict for precise count distinct measure, which support rollup among all segments.
-      </li>
-      <li>
-        "Segment Dictionary" is the special dict for precise count distinct measure, which is based on one segment and could not
-        support rollup among segments.
-        Specifically, if your cube isn't partitioned or you can ensure all your SQLs will group by your partition_column,
-        you could use "Segment Dictionary" instead of "Global Dictionary".
-      </li>
-    </ol>
+    <h4>Special settings for dictionaries. Leave blank by default.</h4>
   </div>
 </script>
 

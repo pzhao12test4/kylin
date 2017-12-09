@@ -26,16 +26,14 @@ import java.util.UUID;
 import org.apache.commons.lang.StringUtils;
 import org.apache.kylin.common.KylinConfig;
 import org.apache.kylin.common.util.JsonUtil;
+import org.apache.kylin.metadata.MetadataManager;
 import org.apache.kylin.metadata.model.DataModelDesc;
-import org.apache.kylin.metadata.model.DataModelManager;
 import org.apache.kylin.metadata.project.ProjectInstance;
 import org.apache.kylin.rest.exception.BadRequestException;
 import org.apache.kylin.rest.exception.ForbiddenException;
 import org.apache.kylin.rest.exception.InternalErrorException;
 import org.apache.kylin.rest.exception.NotFoundException;
 import org.apache.kylin.rest.request.ModelRequest;
-import org.apache.kylin.rest.response.EnvelopeResponse;
-import org.apache.kylin.rest.response.ResponseCode;
 import org.apache.kylin.rest.service.ModelService;
 import org.apache.kylin.rest.service.ProjectService;
 import org.slf4j.Logger;
@@ -74,12 +72,6 @@ public class ModelController extends BasicController {
     @Autowired
     @Qualifier("projectService")
     private ProjectService projectService;
-
-    @RequestMapping(value = "/validate/{modelName}", method = RequestMethod.GET, produces = { "application/json" })
-    @ResponseBody
-    public EnvelopeResponse<Boolean> validateModelName(@PathVariable String modelName) {
-        return new EnvelopeResponse<>(ResponseCode.CODE_SUCCESS, modelService.isModelNameValidate(modelName), "");
-    }
 
     @RequestMapping(value = "", method = { RequestMethod.GET }, produces = { "application/json" })
     @ResponseBody
@@ -161,7 +153,7 @@ public class ModelController extends BasicController {
     @RequestMapping(value = "/{modelName}", method = { RequestMethod.DELETE }, produces = { "application/json" })
     @ResponseBody
     public void deleteModel(@PathVariable String modelName) {
-        DataModelDesc desc = modelService.getDataModelManager().getDataModelDesc(modelName);
+        DataModelDesc desc = modelService.getMetadataManager().getDataModelDesc(modelName);
         if (null == desc) {
             throw new NotFoundException("Data Model with name " + modelName + " not found..");
         }
@@ -177,7 +169,7 @@ public class ModelController extends BasicController {
     @ResponseBody
     public ModelRequest cloneModel(@PathVariable String modelName, @RequestBody ModelRequest modelRequest) {
         String project = modelRequest.getProject();
-        DataModelManager metaManager = DataModelManager.getInstance(KylinConfig.getInstanceFromEnv());
+        MetadataManager metaManager = MetadataManager.getInstance(KylinConfig.getInstanceFromEnv());
         DataModelDesc modelDesc = metaManager.getDataModelDesc(modelName);
         String newModelName = modelRequest.getModelName();
 

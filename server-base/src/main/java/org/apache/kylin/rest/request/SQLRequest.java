@@ -32,7 +32,6 @@ public class SQLRequest implements Serializable {
     private String sql;
 
     private String project;
-    private String username = "";
     private Integer offset = 0;
     private Integer limit = 0;
     private boolean acceptPartial = false;
@@ -58,14 +57,6 @@ public class SQLRequest implements Serializable {
 
     public void setProject(String project) {
         this.project = project;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
     }
 
     public String getSql() {
@@ -104,13 +95,8 @@ public class SQLRequest implements Serializable {
         if (cacheKey != null)
             return cacheKey;
 
-        cacheKey = Lists.newArrayList(sql.replaceAll("\\s+", "") //
-                , project //
-                , offset //
-                , limit //
-                , acceptPartial //
-                , backdoorToggles //
-                , username);
+        cacheKey = Lists.newArrayList(sql.replaceAll("\\s+", ""), project, offset, limit, acceptPartial,
+                backdoorToggles);
         return cacheKey;
     }
 

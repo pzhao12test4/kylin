@@ -107,17 +107,5 @@ KylinApp.service('kylinConfig', function (AdminService, $log) {
     }
   }
 
-  this.isExternalAclEnabled = function() {
-    var status = this.getProperty("kylin.server.external-acl-provider").trim();
-    if (status == '') {
-      return false;
-    }
-    return true;
-  }
-
-  this.getHiddenMeasures = function() {
-    var hide_measures = this.getProperty("kylin.web.hide-measures").replace(/\s/g,"").toUpperCase();
-    return hide_measures.split(",")
-  }
 });
 

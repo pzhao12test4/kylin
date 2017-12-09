@@ -33,7 +33,6 @@ import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellUtil;
 import org.apache.hadoop.hbase.Coprocessor;
 import org.apache.hadoop.hbase.CoprocessorEnvironment;
-import org.apache.hadoop.hbase.DoNotRetryIOException;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.coprocessor.CoprocessorException;
 import org.apache.hadoop.hbase.coprocessor.CoprocessorService;
@@ -49,7 +48,6 @@ import org.apache.kylin.common.util.BytesUtil;
 import org.apache.kylin.common.util.CompressionUtils;
 import org.apache.kylin.common.util.SetThreadName;
 import org.apache.kylin.cube.kv.RowConstants;
-import org.apache.kylin.gridtable.GTAggregateScanner;
 import org.apache.kylin.gridtable.GTRecord;
 import org.apache.kylin.gridtable.GTScanRequest;
 import org.apache.kylin.gridtable.IGTScanner;
@@ -144,17 +142,19 @@ public class CubeVisitService extends CubeVisitProtos.CubeVisitService implement
         private final Iterator<List<Cell>> delegate;
         private final long rowCountLimit;
         private final long bytesLimit;
+        private final long timeout;
         private final long deadline;
 
         private long rowCount;
         private long rowBytes;
 
-        ResourceTrackingCellListIterator(Iterator<List<Cell>> delegate,
-                                         long rowCountLimit, long bytesLimit, long deadline) {
+        ResourceTrackingCellListIterator(Iterator<List<Cell>> delegate, long rowCountLimit, long bytesLimit,
+                long timeout) {
             this.delegate = delegate;
             this.rowCountLimit = rowCountLimit;
             this.bytesLimit = bytesLimit;
-            this.deadline = deadline;
+            this.timeout = timeout;
+            this.deadline = System.currentTimeMillis() + timeout;
         }
 
         @Override
@@ -166,8 +166,8 @@ public class CubeVisitService extends CubeVisitProtos.CubeVisitService implement
                 throw new ResourceLimitExceededException(
                         "scanned bytes " + rowBytes + " exceeds threshold " + bytesLimit);
             }
-            if ((rowCount % GTScanRequest.terminateCheckInterval == 0) && System.currentTimeMillis() > deadline) {
-                throw new KylinTimeoutException("coprocessor timeout after scanning " + rowCount + " rows");
+            if ((rowCount % GTScanRequest.terminateCheckInterval == 1) && System.currentTimeMillis() > deadline) {
+                throw new KylinTimeoutException("coprocessor timeout after " + timeout + " ms");
             }
             return delegate.hasNext();
         }
@@ -219,13 +219,6 @@ public class CubeVisitService extends CubeVisitProtos.CubeVisitService implement
         sb.append(",");
     }
 
-    private void checkDeadline(long deadline) throws DoNotRetryIOException {
-        if (System.currentTimeMillis() > deadline) {
-            logger.info("Deadline has passed, abort now!");
-            throw new DoNotRetryIOException("Coprocessor passed deadline! Maybe server is overloaded");
-        }
-    }
-
     @SuppressWarnings("checkstyle:methodlength")
     @Override
     public void visitCube(final RpcController controller, final CubeVisitProtos.CubeVisitRequest request,
@@ -240,7 +233,6 @@ public class CubeVisitService extends CubeVisitProtos.CubeVisitService implement
         CubeVisitProtos.CubeVisitResponse.ErrorInfo errorInfo = null;
 
         String queryId = request.hasQueryId() ? request.getQueryId() : "UnknownId";
-        logger.info("start query {} in thread {}", queryId, Thread.currentThread().getName());
         try (SetThreadName ignored = new SetThreadName("Query %s", queryId)) {
             final long serviceStartTime = System.currentTimeMillis();
 
@@ -255,9 +247,6 @@ public class CubeVisitService extends CubeVisitProtos.CubeVisitService implement
 
             final GTScanRequest scanReq = GTScanRequest.serializer
                     .deserialize(ByteBuffer.wrap(HBaseZeroCopyByteString.zeroCopyGetBytes(request.getGtScanRequest())));
-            final long deadline = scanReq.getStartTime() + scanReq.getTimeout();
-            checkDeadline(deadline);
-
             List<List<Integer>> hbaseColumnsToGT = Lists.newArrayList();
             for (IntList intList : request.getHbaseColumnsToGTList()) {
                 hbaseColumnsToGT.add(intList.getIntsList());
@@ -308,7 +297,7 @@ public class CubeVisitService extends CubeVisitProtos.CubeVisitService implement
             ResourceTrackingCellListIterator cellListIterator = new ResourceTrackingCellListIterator(allCellLists,
                     scanReq.getStorageScanRowNumThreshold(), // for old client (scan threshold)
                     !request.hasMaxScanBytes() ? Long.MAX_VALUE : request.getMaxScanBytes(), // for new client
-                    deadline);
+                    scanReq.getTimeout());
 
             IGTStore store = new HBaseReadonlyStore(cellListIterator, scanReq, hbaseRawScans.get(0).hbaseColumns,
                     hbaseColumnsToGT, request.getRowkeyPreambleSize(), behavior.delayToggledOn(),
@@ -321,7 +310,7 @@ public class CubeVisitService extends CubeVisitProtos.CubeVisitService implement
             ByteBuffer buffer = ByteBuffer.allocate(BufferedMeasureCodec.DEFAULT_BUFFER_SIZE);
 
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream(BufferedMeasureCodec.DEFAULT_BUFFER_SIZE);//ByteArrayOutputStream will auto grow
-            long finalRowCount = 0L;
+            int finalRowCount = 0;
 
             try {
                 for (GTRecord oneRecord : finalScanner) {
@@ -360,10 +349,6 @@ public class CubeVisitService extends CubeVisitProtos.CubeVisitService implement
                 finalScanner.close();
             }
 
-            long rowCountBeforeAggr = finalScanner instanceof GTAggregateScanner
-                    ? ((GTAggregateScanner) finalScanner).getInputRowCount()
-                    : finalRowCount;
-
             appendProfileInfo(sb, "agg done", serviceStartTime);
             logger.info("Total scanned {} rows and {} bytes", cellListIterator.getTotalScannedRowCount(),
                     cellListIterator.getTotalScannedRowBytes());
@@ -400,8 +385,7 @@ public class CubeVisitService extends CubeVisitProtos.CubeVisitService implement
             done.run(responseBuilder.//
                     setCompressedRows(HBaseZeroCopyByteString.wrap(compressedAllRows)).//too many array copies 
                     setStats(CubeVisitProtos.CubeVisitResponse.Stats.newBuilder()
-                            .setFilteredRowCount(cellListIterator.getTotalScannedRowCount() - rowCountBeforeAggr)
-                            .setAggregatedRowCount(rowCountBeforeAggr - finalRowCount)
+                            .setAggregatedRowCount(cellListIterator.getTotalScannedRowCount() - finalRowCount)
                             .setScannedRowCount(cellListIterator.getTotalScannedRowCount())
                             .setScannedBytes(cellListIterator.getTotalScannedRowBytes())
                             .setServiceStartTime(serviceStartTime).setServiceEndTime(System.currentTimeMillis())
@@ -410,9 +394,6 @@ public class CubeVisitService extends CubeVisitProtos.CubeVisitService implement
                             .setHostname(InetAddress.getLocalHost().getHostName()).setEtcMsg(sb.toString())
                             .setNormalComplete(errorInfo == null ? 1 : 0).build())
                     .build());
-
-        } catch (DoNotRetryIOException e) {
-            ResponseConverter.setControllerException(controller, e);
 
         } catch (IOException ioe) {
             logger.error(ioe.toString(), ioe);
@@ -426,6 +407,7 @@ public class CubeVisitService extends CubeVisitProtos.CubeVisitService implement
                 try {
                     region.closeRegionOperation();
                 } catch (IOException e) {
+                    e.printStackTrace();
                     throw new RuntimeException(e);
                 }
             }

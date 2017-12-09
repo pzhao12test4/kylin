@@ -35,7 +35,6 @@ import org.apache.kylin.cube.model.CubeDesc;
 import org.apache.kylin.engine.mr.KylinMapper;
 import org.apache.kylin.engine.mr.common.AbstractHadoopJob;
 import org.apache.kylin.engine.mr.common.BatchConstants;
-import org.apache.kylin.engine.mr.common.CuboidSchedulerUtil;
 import org.apache.kylin.engine.mr.common.NDCuboidBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,8 +50,8 @@ public class NDCuboidMapper extends KylinMapper<Text, Text, Text, Text> {
     private Text outputKey = new Text();
     private String cubeName;
     private String segmentID;
-    private CubeDesc cubeDesc;
     private CubeSegment cubeSegment;
+    private CubeDesc cubeDesc;
     private CuboidScheduler cuboidScheduler;
 
     private int handleCounter;
@@ -66,18 +65,17 @@ public class NDCuboidMapper extends KylinMapper<Text, Text, Text, Text> {
     protected void doSetup(Context context) throws IOException {
         super.bindCurrentConfiguration(context.getConfiguration());
 
-        cubeName = context.getConfiguration().get(BatchConstants.CFG_CUBE_NAME);
+        cubeName = context.getConfiguration().get(BatchConstants.CFG_CUBE_NAME).toUpperCase();
         segmentID = context.getConfiguration().get(BatchConstants.CFG_CUBE_SEGMENT_ID);
-        String cuboidModeName = context.getConfiguration().get(BatchConstants.CFG_CUBOID_MODE);
 
         KylinConfig config = AbstractHadoopJob.loadKylinPropsAndMetadata();
 
         CubeInstance cube = CubeManager.getInstance(config).getCube(cubeName);
-        cubeDesc = cube.getDescriptor();
         cubeSegment = cube.getSegmentById(segmentID);
+        cubeDesc = cube.getDescriptor();
         ndCuboidBuilder = new NDCuboidBuilder(cubeSegment);
         // initialize CubiodScheduler
-        cuboidScheduler = CuboidSchedulerUtil.getCuboidSchedulerByMode(cubeSegment, cuboidModeName);
+        cuboidScheduler = cubeSegment.getCuboidScheduler();
         rowKeySplitter = new RowKeySplitter(cubeSegment, 65, 256);
     }
 
@@ -86,7 +84,7 @@ public class NDCuboidMapper extends KylinMapper<Text, Text, Text, Text> {
     @Override
     public void doMap(Text key, Text value, Context context) throws IOException, InterruptedException {
         long cuboidId = rowKeySplitter.split(key.getBytes());
-        Cuboid parentCuboid = Cuboid.findForMandatory(cubeDesc, cuboidId);
+        Cuboid parentCuboid = Cuboid.findById(cuboidScheduler, cuboidId);
 
         Collection<Long> myChildren = cuboidScheduler.getSpanningCuboid(cuboidId);
 
@@ -103,11 +101,10 @@ public class NDCuboidMapper extends KylinMapper<Text, Text, Text, Text> {
 
         if (handleCounter++ % BatchConstants.NORMAL_RECORD_LOG_THRESHOLD == 0) {
             logger.info("Handling record with ordinal: " + handleCounter);
-            logger.info("Parent cuboid: " + parentCuboid.getId() + "; Children: " + myChildren);
         }
 
         for (Long child : myChildren) {
-            Cuboid childCuboid = Cuboid.findForMandatory(cubeDesc, child);
+            Cuboid childCuboid = Cuboid.findById(cuboidScheduler, child);
             Pair<Integer, ByteArray> result = ndCuboidBuilder.buildKey(parentCuboid, childCuboid, rowKeySplitter.getSplitBuffers());
             outputKey.set(result.getSecond().array(), 0, result.getFirst());
             context.write(outputKey, value);

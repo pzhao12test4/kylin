@@ -62,12 +62,12 @@ public class HDFSPathGarbageCollectionStep extends AbstractExecutable {
             dropHdfsPathOnCluster(toDeletePaths, HadoopUtil.getWorkingFileSystem());
 
             if (StringUtils.isNotEmpty(context.getConfig().getHBaseClusterFs())) {
-                dropHdfsPathOnCluster(toDeletePaths, FileSystem.get(HBaseConnection.getCurrentHBaseConfiguration()));
+                dropHdfsPathOnCluster(toDeletePaths, HadoopUtil.getWorkingFileSystem(HBaseConnection.getCurrentHBaseConfiguration()));
             }
         } catch (IOException e) {
             logger.error("job:" + getId() + " execute finished with exception", e);
             output.append("\n").append(e.getLocalizedMessage());
-            return new ExecuteResult(ExecuteResult.State.ERROR, output.toString(), e);
+            return new ExecuteResult(ExecuteResult.State.ERROR, output.toString());
         }
 
         return new ExecuteResult(ExecuteResult.State.SUCCEED, output.toString());

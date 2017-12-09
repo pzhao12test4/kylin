@@ -122,8 +122,7 @@ public class PushDownUtil {
 
         if (isSelect) {
             runner.executeQuery(sql, returnRows, returnColumnMeta);
-        }
-        if (!isSelect && kylinConfig.isPushDownUpdateEnabled()) {
+        } else {
             runner.executeUpdate(sql);
         }
         return Pair.newPair(returnRows, returnColumnMeta);
@@ -131,22 +130,12 @@ public class PushDownUtil {
 
     private static boolean isExpectedCause(SQLException sqlException) {
         Preconditions.checkArgument(sqlException != null);
+
         Throwable rootCause = ExceptionUtils.getRootCause(sqlException);
-
-        //SqlValidatorException is not an excepted exception in the origin design.But in the multi pass scene,
-        //query pushdown may create tables, and the tables are not in the model, so will throw SqlValidatorException.
-        boolean isPushDownUpdateEnabled = KylinConfig.getInstanceFromEnv().isPushDownUpdateEnabled();
-
-        if (!isPushDownUpdateEnabled) {
-            return rootCause != null //
-                    && (rootCause instanceof NoRealizationFoundException //
-                            || rootCause instanceof RoutingIndicatorException); //
-        } else {
-            return (rootCause != null //
-                    && (rootCause instanceof NoRealizationFoundException //
-                            || rootCause instanceof SqlValidatorException //
-                            || rootCause instanceof RoutingIndicatorException)); //
-        }
+        return rootCause != null && //
+                (rootCause instanceof NoRealizationFoundException //
+                        || rootCause instanceof SqlValidatorException // 
+                        || rootCause instanceof RoutingIndicatorException);
     }
 
     static String schemaCompletion(String inputSql, String schema) throws SqlParseException {

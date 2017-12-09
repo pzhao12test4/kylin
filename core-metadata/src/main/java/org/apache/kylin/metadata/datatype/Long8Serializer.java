@@ -18,13 +18,12 @@
 
 package org.apache.kylin.metadata.datatype;
 
-import java.nio.ByteBuffer;
-
 import org.apache.kylin.common.util.BytesUtil;
+
+import java.nio.ByteBuffer;
 
 /**
  */
-@SuppressWarnings("serial")
 public class Long8Serializer extends DataTypeSerializer<Long> {
 
     public Long8Serializer(DataType type) {

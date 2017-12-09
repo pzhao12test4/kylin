@@ -28,9 +28,6 @@ KylinApp
         //$scope.projects = [];
         $scope.action = {};
         $scope.timeFilter = jobConfig.timeFilter[1];
-        if ($routeParams.jobTimeFilter) {
-            $scope.timeFilter = jobConfig.timeFilter[$routeParams.jobTimeFilter];
-        }
 
         $scope.status = [];
         $scope.toggleSelection = function toggleSelection(current) {

@@ -38,7 +38,7 @@ import org.apache.kylin.engine.mr.common.MapReduceExecutable;
 import org.apache.kylin.job.execution.DefaultChainedExecutable;
 import org.apache.kylin.job.execution.ExecutableManager;
 import org.apache.kylin.job.execution.ExecutableState;
-import org.apache.kylin.metadata.TableMetadataManager;
+import org.apache.kylin.metadata.MetadataManager;
 import org.apache.kylin.metadata.model.ColumnDesc;
 import org.apache.kylin.metadata.model.TableDesc;
 import org.apache.kylin.metadata.model.TableExtDesc;
@@ -105,7 +105,7 @@ public class TableService extends BasicService {
 
     public TableDesc getTableDescByName(String tableName, boolean withExt, String prj) {
         aclEvaluate.checkProjectReadPermission(prj);
-        TableDesc table = getTableManager().getTableDesc(tableName, prj);
+        TableDesc table = getMetadataManager().getTableDesc(tableName, prj);
         if (withExt) {
             aclEvaluate.checkProjectWritePermission(prj);
             table = cloneTableDesc(table, prj);
@@ -114,12 +114,12 @@ public class TableService extends BasicService {
     }
 
     public String[] loadHiveTablesToProject(String[] tables, String project) throws Exception {
-        aclEvaluate.checkProjectAdminPermission(project);
+        aclEvaluate.checkProjectWritePermission(project);
         // de-dup
         SetMultimap<String, String> db2tables = LinkedHashMultimap.create();
         for (String fullTableName : tables) {
             String[] parts = HadoopUtil.parseHiveTableName(fullTableName);
-            db2tables.put(parts[0], parts[1]);
+            db2tables.put(parts[0].toUpperCase(), parts[1].toUpperCase());
         }
 
         // load all tables first
@@ -128,17 +128,17 @@ public class TableService extends BasicService {
         for (Map.Entry<String, String> entry : db2tables.entries()) {
             Pair<TableDesc, TableExtDesc> pair = explr.loadTableMetadata(entry.getKey(), entry.getValue(), project);
             TableDesc tableDesc = pair.getFirst();
-            Preconditions.checkState(tableDesc.getDatabase().equals(entry.getKey().toUpperCase()));
-            Preconditions.checkState(tableDesc.getName().equals(entry.getValue().toUpperCase()));
-            Preconditions.checkState(tableDesc.getIdentity().equals(entry.getKey().toUpperCase() + "." + entry.getValue().toUpperCase()));
+            Preconditions.checkState(tableDesc.getDatabase().equals(entry.getKey()));
+            Preconditions.checkState(tableDesc.getName().equals(entry.getValue()));
+            Preconditions.checkState(tableDesc.getIdentity().equals(entry.getKey() + "." + entry.getValue()));
             TableExtDesc extDesc = pair.getSecond();
             Preconditions.checkState(tableDesc.getIdentity().equals(extDesc.getIdentity()));
             allMeta.add(pair);
         }
 
         // do schema check
-        TableMetadataManager metaMgr = getTableManager();
-        CubeManager cubeMgr = getCubeManager();
+        MetadataManager metaMgr = MetadataManager.getInstance(getConfig());
+        CubeManager cubeMgr = CubeManager.getInstance(getConfig());
         TableSchemaUpdateChecker checker = new TableSchemaUpdateChecker(metaMgr, cubeMgr);
         for (Pair<TableDesc, TableExtDesc> pair : allMeta) {
             TableDesc tableDesc = pair.getFirst();
@@ -182,7 +182,7 @@ public class TableService extends BasicService {
     }
     
     public Map<String, String[]> loadHiveTables(String[] tableNames, String project, boolean isNeedProfile) throws Exception {
-        aclEvaluate.checkProjectAdminPermission(project);
+        aclEvaluate.checkProjectWritePermission(project);
         String submitter = SecurityContextHolder.getContext().getAuthentication().getName();
         Map<String, String[]> result = new HashMap<String, String[]>();
 
@@ -205,13 +205,13 @@ public class TableService extends BasicService {
     }
 
     public Map<String, String[]> unloadHiveTables(String[] tableNames, String project) throws IOException {
-        aclEvaluate.checkProjectAdminPermission(project);
+        aclEvaluate.checkProjectWritePermission(project);
         Set<String> unLoadSuccess = Sets.newHashSet();
         Set<String> unLoadFail = Sets.newHashSet();
         Map<String, String[]> result = new HashMap<String, String[]>();
 
         for (String tableName : tableNames) {
-            if (unloadHiveTable(tableName, project)) {
+            if (unLoadHiveTable(tableName, project)) {
                 unLoadSuccess.add(tableName);
             } else {
                 unLoadFail.add(tableName);
@@ -239,21 +239,19 @@ public class TableService extends BasicService {
      * @param project
      * @return
      */
-    public boolean unloadHiveTable(String tableName, String project) throws IOException {
-        aclEvaluate.checkProjectAdminPermission(project);
+    public boolean unLoadHiveTable(String tableName, String project) throws IOException {
+        aclEvaluate.checkProjectWritePermission(project);
         Message msg = MsgPicker.getMsg();
 
         boolean rtn = false;
         int tableType = 0;
 
         tableName = normalizeHiveTableName(tableName);
-        TableDesc desc = getTableManager().getTableDesc(tableName, project);
+        TableDesc desc = getMetadataManager().getTableDesc(tableName, project);
         
         // unload of legacy global table is not supported for now
-        if (desc == null || desc.getProject() == null) {
-            logger.warn("Unload Table {} in Project {} failed, could not find TableDesc or related Project", tableName, project);
+        if (desc == null || desc.getProject() == null)
             return false;
-        }
         
         tableType = desc.getSourceType();
 
@@ -266,7 +264,7 @@ public class TableService extends BasicService {
         }
         
         // it is a project local table, ready to remove since no model is using it within the project
-        TableMetadataManager metaMgr = getTableManager();
+        MetadataManager metaMgr = MetadataManager.getInstance(getConfig());
         metaMgr.removeTableExt(tableName, project);
         metaMgr.removeSourceTable(tableName, project);
 
@@ -295,9 +293,9 @@ public class TableService extends BasicService {
      * @throws IOException
      */
     public void addStreamingTable(TableDesc desc, String project) throws IOException {
-        aclEvaluate.checkProjectAdminPermission(project);
+        aclEvaluate.checkProjectWritePermission(project);
         desc.setUuid(UUID.randomUUID().toString());
-        getTableManager().saveSourceTable(desc, project);
+        getMetadataManager().saveSourceTable(desc, project);
         syncTableToProject(new String[] { desc.getIdentity() }, project);
     }
 
@@ -323,7 +321,7 @@ public class TableService extends BasicService {
     }
 
     private TableDescResponse cloneTableDesc(TableDesc table, String prj) {
-        TableExtDesc tableExtDesc = getTableManager().getTableExt(table.getIdentity(), prj);
+        TableExtDesc tableExtDesc = getMetadataManager().getTableExt(table.getIdentity(), prj);
 
         // Clone TableDesc
         TableDescResponse rtableDesc = new TableDescResponse(table);
@@ -362,7 +360,7 @@ public class TableService extends BasicService {
     }
 
     public void calculateCardinalityIfNotPresent(String[] tables, String submitter, String prj) throws Exception {
-        TableMetadataManager metaMgr = getTableManager();
+        MetadataManager metaMgr = getMetadataManager();
         ExecutableManager exeMgt = ExecutableManager.getInstance(getConfig());
         for (String table : tables) {
             TableExtDesc tableExtDesc = metaMgr.getTableExt(table, prj);
@@ -384,8 +382,8 @@ public class TableService extends BasicService {
         Message msg = MsgPicker.getMsg();
 
         tableName = normalizeHiveTableName(tableName);
-        TableDesc table = getTableManager().getTableDesc(tableName, prj);
-        final TableExtDesc tableExt = getTableManager().getTableExt(tableName, prj);
+        TableDesc table = getMetadataManager().getTableDesc(tableName, prj);
+        final TableExtDesc tableExt = getMetadataManager().getTableExt(tableName, prj);
         if (table == null) {
             BadRequestException e = new BadRequestException(String.format(msg.getTABLE_DESC_NOT_FOUND(), tableName));
             logger.error("Cannot find table descriptor " + tableName, e);
@@ -416,7 +414,7 @@ public class TableService extends BasicService {
         step2.setParam("segmentId", tableName);
         job.addTask(step2);
         tableExt.setJodID(job.getId());
-        getTableManager().saveTableExt(tableExt, prj);
+        getMetadataManager().saveTableExt(tableExt, prj);
 
         getExecutableManager().addJob(job);
     }

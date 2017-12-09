@@ -19,6 +19,7 @@
 package org.apache.kylin.cube.cuboid;
 
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -88,7 +89,8 @@ public class TreeCuboidScheduler extends CuboidScheduler {
             return createFromCuboids(allCuboidIds, Cuboid.cuboidSelectComparator);
         }
 
-        public static CuboidTree createFromCuboids(List<Long> allCuboidIds, Comparator<Long> cuboidComparator) {
+        @VisibleForTesting
+        static CuboidTree createFromCuboids(List<Long> allCuboidIds, Comparator<Long> cuboidComparator) {
             // sort the cuboid ids in descending order, so that don't need to adjust
             // the cuboid tree when adding cuboid id to the tree.
             Collections.sort(allCuboidIds, new Comparator<Long>() {
@@ -243,7 +245,7 @@ public class TreeCuboidScheduler extends CuboidScheduler {
         @JsonIgnore
         int level;
         @JsonProperty("children")
-        List<TreeNode> children = Lists.newArrayList();
+        List<TreeNode> children = new ArrayList<>();
 
         public long getCuboidId() {
             return cuboidId;

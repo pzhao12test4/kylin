@@ -200,16 +200,6 @@ KylinApp.controller('CubeEditCtrl', function ($scope, $q, $routeParams, $locatio
     return type;
   };
 
-  $scope.isIntMeasure = function (measure) {
-    var column = measure.function.parameter.value;
-    if(column && (typeof column=="string")){
-      var colType = $scope.getColumnType(VdmUtil.removeNameSpace(column), VdmUtil.getNameSpaceAliasName(column));
-      if(colType==="tinyint"||colType==="smallint"||colType==="int"||colType==="integer"){
-        return true;
-      }
-    }
-    return false;
-  };
 
   // ~ Define data
   $scope.state = {
@@ -292,7 +282,6 @@ KylinApp.controller('CubeEditCtrl', function ($scope, $q, $routeParams, $locatio
       $scope.cubeMetaFrame.model_name = $scope.cubeMetaFrame.name;
     }
 
-    VdmUtil.removeElementInArrayByValue($scope.cubeMetaFrame.auto_merge_time_ranges, 0);
     $scope.state.project = ProjectModel.getSelectedProject();
 //        delete $scope.cubeMetaFrame.project;
 
@@ -740,7 +729,7 @@ KylinApp.controller('CubeEditCtrl', function ($scope, $q, $routeParams, $locatio
     var distinctMeasures = [];
 
     angular.forEach($scope.cubeMetaFrame.measures, function (measure, index) {
-      if (measure.function.expression === 'COUNT_DISTINCT' && measure.function.returntype === 'bitmap' && !$scope.isIntMeasure(measure)) {
+      if (measure.function.expression === 'COUNT_DISTINCT' && measure.function.returntype === 'bitmap') {
         var measureColumn = measure.function.parameter.value;
         distinctMeasures.push(measureColumn);
         //keep backward compatibility

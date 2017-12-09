@@ -20,7 +20,6 @@ package org.apache.kylin.rest.controller;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import org.apache.commons.lang.StringUtils;
@@ -89,7 +88,7 @@ public class ProjectController extends BasicController {
         List<ProjectInstance> readableProjects = new ArrayList<ProjectInstance>();
 
         //list all projects first
-        List<ProjectInstance> projectInstances = projectService.listAllProjects(null, null);
+        List<ProjectInstance> projectInstances = projectService.listAllProjects(limit, offset);
 
         for (ProjectInstance projectInstance : projectInstances) {
 
@@ -109,18 +108,7 @@ public class ProjectController extends BasicController {
             }
 
         }
-        int projectLimit = (null == limit) ? Integer.MAX_VALUE : limit;
-        int projectOffset = (null == offset) ? 0 : offset;
-
-        if (readableProjects.size() <= projectOffset) {
-            return Collections.emptyList();
-        }
-
-        if ((readableProjects.size() - projectOffset) < projectLimit) {
-            return readableProjects.subList(projectOffset, readableProjects.size());
-        }
-
-        return readableProjects.subList(projectOffset, projectOffset + projectLimit);
+        return readableProjects;
     }
 
     @RequestMapping(value = "", method = { RequestMethod.POST }, produces = { "application/json" })

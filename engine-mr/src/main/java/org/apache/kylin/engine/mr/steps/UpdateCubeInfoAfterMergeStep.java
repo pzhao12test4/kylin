@@ -26,7 +26,6 @@ import org.apache.kylin.cube.CubeInstance;
 import org.apache.kylin.cube.CubeManager;
 import org.apache.kylin.cube.CubeSegment;
 import org.apache.kylin.engine.mr.CubingJob;
-import org.apache.kylin.engine.mr.exception.SegmentNotFoundException;
 import org.apache.kylin.job.exception.ExecuteException;
 import org.apache.kylin.job.execution.AbstractExecutable;
 import org.apache.kylin.job.execution.ExecutableContext;
@@ -52,8 +51,7 @@ public class UpdateCubeInfoAfterMergeStep extends AbstractExecutable {
 
         CubeSegment mergedSegment = cube.getSegmentById(CubingExecutableUtil.getSegmentId(this.getParams()));
         if (mergedSegment == null) {
-            return ExecuteResult.createFailed(new SegmentNotFoundException(
-                    "there is no segment with id:" + CubingExecutableUtil.getSegmentId(this.getParams())));
+            return new ExecuteResult(ExecuteResult.State.FAILED, "there is no segment with id:" + CubingExecutableUtil.getSegmentId(this.getParams()));
         }
 
         CubingJob cubingJob = (CubingJob) getManager().getJob(CubingExecutableUtil.getCubingJobId(this.getParams()));
@@ -62,7 +60,7 @@ public class UpdateCubeInfoAfterMergeStep extends AbstractExecutable {
         // collect source statistics
         List<String> mergingSegmentIds = CubingExecutableUtil.getMergingSegmentIds(this.getParams());
         if (mergingSegmentIds.isEmpty()) {
-            return ExecuteResult.createFailed(new SegmentNotFoundException("there are no merging segments"));
+            return new ExecuteResult(ExecuteResult.State.FAILED, "there are no merging segments");
         }
         long sourceCount = 0L;
         long sourceSize = 0L;
@@ -84,7 +82,7 @@ public class UpdateCubeInfoAfterMergeStep extends AbstractExecutable {
             return new ExecuteResult(ExecuteResult.State.SUCCEED);
         } catch (IOException e) {
             logger.error("fail to update cube after merge", e);
-            return ExecuteResult.createError(e);
+            return new ExecuteResult(ExecuteResult.State.ERROR, e.getLocalizedMessage());
         }
     }
 

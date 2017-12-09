@@ -79,7 +79,7 @@ public class GTAggregateScanner implements IGTScanner, IGTBypassChecker {
     final boolean spillEnabled;
     final TupleFilter havingFilter;
 
-    private long inputRowCount = 0L;
+    private int aggregatedRowCount = 0;
     private MemoryWaterLevel memTracker;
     private boolean[] aggrMask;
 
@@ -149,10 +149,6 @@ public class GTAggregateScanner implements IGTScanner, IGTBypassChecker {
     @Override
     public GTInfo getInfo() {
         return info;
-    }
-
-    public long getInputRowCount() {
-        return inputRowCount;
     }
 
     @Override
@@ -375,7 +371,7 @@ public class GTAggregateScanner implements IGTScanner, IGTBypassChecker {
         }
 
         boolean aggregate(GTRecord r) {
-            if (++inputRowCount % 100000 == 0) {
+            if (++aggregatedRowCount % 100000 == 0) {
                 if (memTracker != null) {
                     memTracker.markHigh();
                 }
@@ -620,7 +616,7 @@ public class GTAggregateScanner implements IGTScanner, IGTBypassChecker {
                 for (int i = 0; i < dimensions.trueBitCount(); i++) {
                     int c = dimensions.trueBitAt(i);
                     final int columnLength = info.codeSystem.maxCodeLength(c);
-                    record.cols[c].reset(key, offset, columnLength);
+                    record.cols[c].set(key, offset, columnLength);
                     offset += columnLength;
                 }
 
@@ -633,7 +629,7 @@ public class GTAggregateScanner implements IGTScanner, IGTBypassChecker {
                 offset = 0;
                 for (int i = 0; i < value.length; i++) {
                     int col = metrics.trueBitAt(i);
-                    record.cols[col].reset(bytes, offset, sizes[i]);
+                    record.cols[col].set(bytes, offset, sizes[i]);
                     offset += sizes[i];
                 }
             }

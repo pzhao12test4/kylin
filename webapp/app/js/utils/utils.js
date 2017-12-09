@@ -169,16 +169,6 @@ KylinApp.factory('VdmUtil', function ($modal, $timeout, $location, $anchorScroll
     },
     isNotExtraKey:function(obj,key){
       return obj&&key&&key!="$promise"&&key!='$resolved'&&obj.hasOwnProperty(key);
-    },
-    removeElementInArrayByValue:function(arr,val){
-      if(!arr || arr.length === 0){
-        return;
-      }
-      for(var i=arr.length-1; i>=0; i--) {
-        if(arr[i] == val) {
-          arr.splice(i, 1);
-        }
-      }
     }
   }
 });

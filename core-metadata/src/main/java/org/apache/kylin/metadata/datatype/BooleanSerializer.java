@@ -18,12 +18,11 @@
 
 package org.apache.kylin.metadata.datatype;
 
-import java.nio.ByteBuffer;
-
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.BooleanUtils;
 
-@SuppressWarnings("serial")
+import java.nio.ByteBuffer;
+
 public class BooleanSerializer extends DataTypeSerializer<Long> {
 
     public final static String[] TRUE_VALUE_SET = { "true", "t", "on", "yes" };

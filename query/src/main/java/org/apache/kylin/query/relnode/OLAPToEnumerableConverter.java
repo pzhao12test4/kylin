@@ -35,8 +35,8 @@ import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.kylin.common.KylinConfig;
 import org.apache.kylin.common.util.ClassUtil;
 import org.apache.kylin.query.routing.RealizationChooser;
-import org.apache.kylin.query.security.QueryInterceptor;
-import org.apache.kylin.query.security.QueryInterceptorUtil;
+import org.apache.kylin.query.security.QueryIntercept;
+import org.apache.kylin.query.security.QueryInterceptUtil;
 
 import com.google.common.collect.Lists;
 
@@ -74,10 +74,12 @@ public class OLAPToEnumerableConverter extends ConverterImpl implements Enumerab
         // identify model & realization
         List<OLAPContext> contexts = listContextsHavingScan();
 
-        // intercept query
-        List<QueryInterceptor> intercepts = QueryInterceptorUtil.getQueryInterceptors();
-        for (QueryInterceptor intercept : intercepts) {
-            intercept.intercept(contexts);
+        String project = getProject(contexts);
+        String user = getUser(contexts);
+
+        List<QueryIntercept> intercepts = QueryInterceptUtil.getQueryIntercepts();
+        for (QueryIntercept intercept : intercepts) {
+            intercept.intercept(project, user, contexts);
         }
 
         RealizationChooser.selectRealization(contexts);
@@ -123,5 +125,13 @@ public class OLAPToEnumerableConverter extends ConverterImpl implements Enumerab
             OLAPContext.IAccessController accessController = (OLAPContext.IAccessController) ClassUtil.newInstance(controllerCls);
             accessController.check(contexts, config);
         }
+    }
+
+    public String getProject(List<OLAPContext> contexts) {
+        return contexts.get(0).olapSchema.getProjectName();
+    }
+
+    public String getUser(List<OLAPContext> contexts) {
+        return contexts.get(0).olapAuthen.getUsername();
     }
 }

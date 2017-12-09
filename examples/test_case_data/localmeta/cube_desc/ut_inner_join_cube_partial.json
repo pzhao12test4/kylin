@@ -124,6 +124,21 @@
       "column": "ACCOUNT_COUNTRY"
     },
     {
+      "name": "DEAL_YEAR",
+      "table": "TEST_KYLIN_FACT",
+      "column": "DEAL_YEAR"
+    },
+    {
+      "name": "SELLER_COUNTRY_ABBR",
+      "table": "TEST_KYLIN_FACT",
+      "column": "SELLER_COUNTRY_ABBR"
+    },
+    {
+      "name": "BUYER_COUNTRY_ABBR",
+      "table": "TEST_KYLIN_FACT",
+      "column": "BUYER_COUNTRY_ABBR"
+    },
+    {
       "name": "BUYER_COUNTRY_NAME",
       "table": "BUYER_COUNTRY",
       "column": "NAME"
@@ -214,7 +229,19 @@
         "encoding": "dict"
       },
       {
+        "column": "TEST_KYLIN_FACT.DEAL_YEAR",
+        "encoding": "int:2"
+      },
+      {
         "column": "SELLER_COUNTRY.NAME",
+        "encoding": "dict"
+      },
+      {
+        "column": "TEST_KYLIN_FACT.SELLER_COUNTRY_ABBR",
+        "encoding": "dict"
+      },
+      {
+        "column": "TEST_KYLIN_FACT.BUYER_COUNTRY_ABBR",
         "encoding": "dict"
       }
     ]
@@ -234,7 +261,8 @@
         "TEST_KYLIN_FACT.SLR_SEGMENT_CD",
         "TEST_CATEGORY_GROUPINGS.META_CATEG_NAME",
         "TEST_CATEGORY_GROUPINGS.CATEG_LVL2_NAME",
-        "TEST_CATEGORY_GROUPINGS.CATEG_LVL3_NAME"
+        "TEST_CATEGORY_GROUPINGS.CATEG_LVL3_NAME",
+        "TEST_KYLIN_FACT.DEAL_YEAR"
       ],
       "select_rule": {
         "hierarchy_dims": [
@@ -250,7 +278,8 @@
           [
             "TEST_KYLIN_FACT.LSTG_FORMAT_NAME",
             "TEST_KYLIN_FACT.LSTG_SITE_ID",
-            "TEST_KYLIN_FACT.SLR_SEGMENT_CD"
+            "TEST_KYLIN_FACT.SLR_SEGMENT_CD",
+            "TEST_KYLIN_FACT.DEAL_YEAR"
           ]
         ],
         "dim_cap": 3
@@ -278,7 +307,9 @@
         "BUYER_ACCOUNT.ACCOUNT_BUYER_LEVEL",
         "BUYER_ACCOUNT.ACCOUNT_SELLER_LEVEL",
         "BUYER_ACCOUNT.ACCOUNT_COUNTRY",
-        "BUYER_COUNTRY.NAME"
+        "BUYER_COUNTRY.NAME",
+        "TEST_KYLIN_FACT.SELLER_COUNTRY_ABBR",
+        "TEST_KYLIN_FACT.BUYER_COUNTRY_ABBR"
       ],
       "select_rule": {
         "hierarchy_dims": [],
@@ -295,7 +326,9 @@
           [
             "TEST_KYLIN_FACT.LSTG_FORMAT_NAME",
             "TEST_KYLIN_FACT.LSTG_SITE_ID",
-            "TEST_KYLIN_FACT.SLR_SEGMENT_CD"
+            "TEST_KYLIN_FACT.SLR_SEGMENT_CD",
+            "TEST_KYLIN_FACT.SELLER_COUNTRY_ABBR",
+            "TEST_KYLIN_FACT.BUYER_COUNTRY_ABBR"
           ],
           [
             "TEST_KYLIN_FACT.SELLER_ID",

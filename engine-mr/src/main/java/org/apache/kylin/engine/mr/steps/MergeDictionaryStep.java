@@ -69,10 +69,10 @@ public class MergeDictionaryStep extends AbstractExecutable {
             CubeUpdate cubeBuilder = new CubeUpdate(cube);
             cubeBuilder.setToUpdateSegs(newSegment);
             mgr.updateCube(cubeBuilder);
-            return ExecuteResult.createSucceed();
+            return new ExecuteResult(ExecuteResult.State.SUCCEED, "succeed");
         } catch (IOException e) {
             logger.error("fail to merge dictionary or lookup snapshots", e);
-            return ExecuteResult.createError(e);
+            return new ExecuteResult(ExecuteResult.State.ERROR, e.getLocalizedMessage());
         }
     }
 

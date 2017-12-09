@@ -19,6 +19,7 @@
 package org.apache.kylin.cube.inmemcubing;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 
@@ -77,17 +78,12 @@ abstract public class AbstractInMemCubeBuilder {
         return this.reserveMemoryMB;
     }
 
-    public Runnable buildAsRunnable(final BlockingQueue<String[]> input, final ICuboidWriter output) {
-        return buildAsRunnable(input, new InputConverterUnitForRawData(cubeDesc, flatDesc, dictionaryMap), output);
-    }
-
-    public <T> Runnable buildAsRunnable(final BlockingQueue<T> input, final InputConverterUnit<T> inputConverterUnit,
-            final ICuboidWriter output) {
+    public Runnable buildAsRunnable(final BlockingQueue<List<String>> input, final ICuboidWriter output) {
         return new Runnable() {
             @Override
             public void run() {
                 try {
-                    build(input, inputConverterUnit, output);
+                    build(input, output);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -95,8 +91,7 @@ abstract public class AbstractInMemCubeBuilder {
         };
     }
 
-    abstract public <T> void build(BlockingQueue<T> input, InputConverterUnit<T> inputConverterUnit,
-            ICuboidWriter output) throws IOException;
+    abstract public void build(BlockingQueue<List<String>> input, ICuboidWriter output) throws IOException;
 
     protected void outputCuboid(long cuboidId, GridTable gridTable, ICuboidWriter output) throws IOException {
         long startTime = System.currentTimeMillis();

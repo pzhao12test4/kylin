@@ -17,11 +17,11 @@
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xmlns:context="http://www.springframework.org/schema/context"
        xmlns:util="http://www.springframework.org/schema/util" xsi:schemaLocation="http://www.springframework.org/schema/beans
-	http://www.springframework.org/schema/beans/spring-beans-4.3.xsd
+	http://www.springframework.org/schema/beans/spring-beans-4.2.xsd
 	http://www.springframework.org/schema/security
-	http://www.springframework.org/schema/security/spring-security-4.2.xsd
+	http://www.springframework.org/schema/security/spring-security-4.0.xsd
 	http://www.springframework.org/schema/util
-	http://www.springframework.org/schema/util/spring-util-4.3.xsd
+	http://www.springframework.org/schema/util/spring-util-4.2.xsd
     http://www.springframework.org/schema/context
     http://www.springframework.org/schema/context/spring-context.xsd">
 
@@ -38,9 +38,9 @@
         <property name="permissionEvaluator" ref="permissionEvaluator"/>
     </bean>
 
-    <bean id="permissionEvaluator" class="org.apache.kylin.rest.security.KylinAclPermissionEvaluator">
+    <bean id="permissionEvaluator" class="org.springframework.security.acls.AclPermissionEvaluator">
         <constructor-arg ref="aclService"/>
-        <constructor-arg ref="aclPermissionFactory"/>
+        <property name="permissionFactory" ref="aclPermissionFactory"/>
     </bean>
 
     <bean id="aclAuthorizationStrategy"
@@ -318,7 +318,7 @@
 
         <!-- Central storage of cryptographic keys -->
         <bean id="keyManager" class="org.springframework.security.saml.key.JKSKeyManager">
-            <constructor-arg value="${kylin.security.saml.keystore-file}"/>
+            <constructor-arg value="classpath:samlKeystore.jks"/>
             <constructor-arg type="java.lang.String" value="changeit"/>
             <constructor-arg>
                 <map>
@@ -358,6 +358,7 @@
         <!-- Handler for successful logout -->
         <bean id="successLogoutHandler"
               class="org.springframework.security.web.authentication.logout.SimpleUrlLogoutSuccessHandler">
+            <property name="defaultTargetUrl" value="/login"/>
         </bean>
 
         <!-- Logger for SAML messages and events -->
@@ -402,7 +403,7 @@
                         <constructor-arg>
                             <bean class="org.opensaml.saml2.metadata.provider.FilesystemMetadataProvider">
                                 <constructor-arg>
-                                    <value type="java.io.File">${kylin.security.saml.metadata-file}</value>
+                                    <value type="java.io.File">classpath:sso_metadata.xml</value>
                                 </constructor-arg>
                                 <property name="parserPool" ref="parserPool"/>
                             </bean>

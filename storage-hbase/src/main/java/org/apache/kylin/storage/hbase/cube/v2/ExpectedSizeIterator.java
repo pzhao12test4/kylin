@@ -32,11 +32,11 @@ class ExpectedSizeIterator implements Iterator<byte[]> {
     private BlockingQueue<byte[]> queue;
     private int expectedSize;
     private int current = 0;
-    private long coprocessorTimeout;
+    private int coprocessorTimeout;
     private long deadline;
     private volatile Throwable coprocException;
 
-    public ExpectedSizeIterator(int expectedSize, long coprocessorTimeout) {
+    public ExpectedSizeIterator(int expectedSize, int coprocessorTimeout) {
         this.expectedSize = expectedSize;
         this.queue = new ArrayBlockingQueue<byte[]>(expectedSize);
 

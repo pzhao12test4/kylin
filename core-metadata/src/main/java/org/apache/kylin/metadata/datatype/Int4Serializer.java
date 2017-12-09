@@ -18,13 +18,12 @@
 
 package org.apache.kylin.metadata.datatype;
 
-import java.nio.ByteBuffer;
-
 import org.apache.kylin.common.util.BytesUtil;
+
+import java.nio.ByteBuffer;
 
 /**
  */
-@SuppressWarnings("serial")
 public class Int4Serializer extends DataTypeSerializer<Integer> {
 
     public Int4Serializer(DataType type) {
