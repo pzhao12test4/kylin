@@ -94,8 +94,7 @@ public class AppendTrieDictionaryTest extends LocalFileMetadataTestCase {
 
     private AppendTrieDictionaryBuilder createBuilder(String resourceDir) throws IOException {
         int maxEntriesPerSlice = KylinConfig.getInstanceFromEnv().getAppendDictEntrySize();
-        String baseDir = KylinConfig.getInstanceFromEnv().getHdfsWorkingDirectory() + "/resources/GlobalDict" + resourceDir +  "/";
-        return new AppendTrieDictionaryBuilder(baseDir, maxEntriesPerSlice, true);
+        return new AppendTrieDictionaryBuilder(resourceDir, maxEntriesPerSlice);
     }
 
     @Test

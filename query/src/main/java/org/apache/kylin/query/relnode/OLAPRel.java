@@ -89,7 +89,7 @@ public interface OLAPRel extends RelNode {
             return parentNodeStack.peek();
         }
 
-        public Stack<RelNode> getParentNodeStack() {
+        public Stack<RelNode> getParentStack() {
             return parentNodeStack;
         }
 

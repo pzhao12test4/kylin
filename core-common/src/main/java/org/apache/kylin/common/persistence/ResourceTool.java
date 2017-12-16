@@ -24,7 +24,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.List;
 import java.util.NavigableSet;
-import java.util.Set;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.kylin.common.KylinConfig;
@@ -32,15 +31,13 @@ import org.apache.kylin.common.util.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Sets;
-
 public class ResourceTool {
 
     private static String[] includes = null;
     private static String[] excludes = null;
     private static final Logger logger = LoggerFactory.getLogger(ResourceTool.class);
 
-    private static final Set<String> IMMUTABLE_PREFIX = Sets.newHashSet("/UUID");
+    private static final String[] IMMUTABLE_PREFIX = { "/UUID" };
 
     public static void main(String[] args) throws IOException {
         args = StringUtil.filterSystemArgs(args);
@@ -64,7 +61,7 @@ public class ResourceTool {
             addExcludes(exclude.split("\\s*,\\s*"));
         }
 
-        addExcludes(IMMUTABLE_PREFIX.toArray(new String[IMMUTABLE_PREFIX.size()]));
+        addExcludes(IMMUTABLE_PREFIX);
 
         String cmd = args[0];
         switch (cmd) {
@@ -153,14 +150,13 @@ public class ResourceTool {
         System.out.println("" + result);
         return result;
     }
-
-    public static void copy(KylinConfig srcConfig, KylinConfig dstConfig, String path) throws IOException {
-        copy(srcConfig, dstConfig, path, false);
+    
+    public static void copy(KylinConfig srcConfig, KylinConfig dstConfig, String path) throws IOException {        
+        copy(srcConfig, dstConfig, path, false);        
     }
 
-    //Do NOT invoke this method directly, unless you want to copy and possibly overwrite immutable resources such as UUID.
-    public static void copy(KylinConfig srcConfig, KylinConfig dstConfig, String path, boolean copyImmutableResource)
-            throws IOException {
+    //Do NOT invoke this method directly, unless you want to copy and possibly overwrite immutable resources such as UUID. 
+    public static void copy(KylinConfig srcConfig, KylinConfig dstConfig, String path, boolean copyImmutableResource) throws IOException {
         ResourceStore src = ResourceStore.getStore(srcConfig);
         ResourceStore dst = ResourceStore.getStore(dstConfig);
 
@@ -169,13 +165,12 @@ public class ResourceTool {
         copyR(src, dst, path, copyImmutableResource);
     }
 
-    public static void copy(KylinConfig srcConfig, KylinConfig dstConfig, List<String> paths) throws IOException {
-        copy(srcConfig, dstConfig, paths, false);
+    public static void copy(KylinConfig srcConfig, KylinConfig dstConfig, List<String> paths) throws IOException {        
+        copy(srcConfig, dstConfig, paths, false);        
     }
-
-    //Do NOT invoke this method directly, unless you want to copy and possibly overwrite immutable resources such as UUID.
-    public static void copy(KylinConfig srcConfig, KylinConfig dstConfig, List<String> paths,
-            boolean copyImmutableResource) throws IOException {
+    
+    //Do NOT invoke this method directly, unless you want to copy and possibly overwrite immutable resources such as UUID. 
+    public static void copy(KylinConfig srcConfig, KylinConfig dstConfig, List<String> paths, boolean copyImmutableResource) throws IOException {
         ResourceStore src = ResourceStore.getStore(srcConfig);
         ResourceStore dst = ResourceStore.getStore(dstConfig);
 
@@ -186,28 +181,23 @@ public class ResourceTool {
         }
     }
 
+    
     public static void copy(KylinConfig srcConfig, KylinConfig dstConfig) throws IOException {
         copy(srcConfig, dstConfig, false);
     }
-
-    //Do NOT invoke this method directly, unless you want to copy and possibly overwrite immutable resources such as UUID.
-    public static void copy(KylinConfig srcConfig, KylinConfig dstConfig, boolean copyImmutableResource)
-            throws IOException {
+    
+    //Do NOT invoke this method directly, unless you want to copy and possibly overwrite immutable resources such as UUID. 
+    public static void copy(KylinConfig srcConfig, KylinConfig dstConfig, boolean copyImmutableResource) throws IOException {
         copy(srcConfig, dstConfig, "/", copyImmutableResource);
-    }
-
-    public static void copyR(ResourceStore src, ResourceStore dst, String path, boolean copyImmutableResource)
-            throws IOException {
-
-        if (!copyImmutableResource && IMMUTABLE_PREFIX.contains(path)) {
-            return;
-        }
-
+    }    
+    
+    public static void copyR(ResourceStore src, ResourceStore dst, String path, boolean copyImmutableResource) throws IOException {
+        
         NavigableSet<String> children = src.listResources(path);
 
         if (children == null) {
             // case of resource (not a folder)
-            if (matchFilter(path)) {
+            if (copyImmutableResource || matchFilter(path)) {
                 try {
                     RawResource res = src.getResource(path);
                     if (res != null) {
@@ -226,7 +216,7 @@ public class ResourceTool {
             for (String child : children)
                 copyR(src, dst, child, copyImmutableResource);
         }
-
+        
     }
 
     private static boolean matchFilter(String path) {

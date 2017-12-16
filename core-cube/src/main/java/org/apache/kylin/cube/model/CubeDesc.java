@@ -191,7 +191,7 @@ public class CubeDesc extends RootPersistentEntity implements IEngineAware {
     private Map<Array<TblColRef>, List<DeriveInfo>> hostToDerivedMap = Maps.newHashMap();
 
     private Map<TblColRef, DeriveInfo> extendedColumnToHosts = Maps.newHashMap();
-
+    
     transient private CuboidScheduler cuboidScheduler = null;
 
     public boolean isEnableSharding() {
@@ -563,6 +563,9 @@ public class CubeDesc extends RootPersistentEntity implements IEngineAware {
 
         checkArgument(StringUtils.isNotBlank(name), "CubeDesc name is blank");
         checkArgument(StringUtils.isNotBlank(modelName), "CubeDesc (%s) has blank model name", name);
+        checkArgument(this.rowkey.getRowKeyColumns().length < MAX_ROWKEY_SIZE,
+                "Too many rowkeys (%s) in CubeDesc, please try to reduce dimension number or adopt derived dimensions",
+                this.rowkey.getRowKeyColumns().length);
 
         // note CubeDesc.name == CubeInstance.name
         List<ProjectInstance> ownerPrj = ProjectManager.getInstance(config).findProjects(RealizationType.CUBE, name);
@@ -578,10 +581,6 @@ public class CubeDesc extends RootPersistentEntity implements IEngineAware {
         }
 
         this.config = KylinConfigExt.createInstance(config, overrideKylinProps);
-
-        checkArgument(this.rowkey.getRowKeyColumns().length <= this.config.getCubeRowkeyMaxSize(),
-                "Too many rowkeys (%s) in CubeDesc, please try to reduce dimension number or adopt derived dimensions",
-                this.rowkey.getRowKeyColumns().length);
 
         this.model = MetadataManager.getInstance(config).getDataModelDesc(modelName);
         checkNotNull(this.model, "DateModelDesc(%s) not found", modelName);
@@ -608,8 +607,6 @@ public class CubeDesc extends RootPersistentEntity implements IEngineAware {
                 Class<?> hbaseMappingAdapterClass = Class.forName(hbaseMappingAdapterName);
                 Method initMethod = hbaseMappingAdapterClass.getMethod("initHBaseMapping", CubeDesc.class);
                 initMethod.invoke(null, this);
-                Method initMeasureReferenceToColumnFamilyMethod = hbaseMappingAdapterClass.getMethod("initMeasureReferenceToColumnFamilyWithChecking", CubeDesc.class);
-                initMeasureReferenceToColumnFamilyMethod.invoke(null, this);
             } catch (Exception e) {
                 logger.error("Wrong configuration for kylin.metadata.hbasemapping-adapter: class "
                         + hbaseMappingAdapterName + " not found. ");
@@ -617,9 +614,10 @@ public class CubeDesc extends RootPersistentEntity implements IEngineAware {
         } else {
             if (hbaseMapping != null) {
                 hbaseMapping.init(this);
-                initMeasureReferenceToColumnFamily();
             }
         }
+
+        initMeasureReferenceToColumnFamily();
 
         // check all dimension columns are presented on rowkey
         List<TblColRef> dimCols = listDimensionColumnsExcludingDerived(true);
@@ -660,8 +658,8 @@ public class CubeDesc extends RootPersistentEntity implements IEngineAware {
                             + ". Use 'mandatory'/'hierarchy'/'joint' to optimize; or update 'kylin.cube.aggrgroup.max-combination' to a bigger value.";
                     throw new TooManyCuboidException(msg);
                 }
-            } catch (TooManyCuboidException e) {
-                throw e;
+            } catch (TooManyCuboidException tmce) {
+                throw tmce;
             } catch (Exception e) {
                 throw new IllegalStateException("Unknown error while calculating cuboid number for " + //
                         "Aggregation group " + index + " of Cube Desc " + this.name, e);
