@@ -1189,6 +1189,10 @@ abstract public class KylinConfigBase implements Serializable {
         return Integer.parseInt(this.getOptional("kylin.query.pushdown.jdbc.pool-min-idle", "0"));
     }
 
+    public boolean isTableACLEnabled() {
+        return Boolean.valueOf(this.getOptional("kylin.query.acl.table-acl-enabled", "true"));
+    }
+
     // ============================================================================
     // SERVER
     // ============================================================================
