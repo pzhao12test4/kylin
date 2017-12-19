@@ -128,7 +128,7 @@ abstract public class CuboidScheduler {
     
     /** Returns the key for what this cuboid scheduler responsible for. */
     public String getCuboidCacheKey() {
-        return cubeDesc.getName();
+        return CubeDesc.class.getSimpleName() + "-" + cubeDesc.getName();
     }
     
 }

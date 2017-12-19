@@ -75,30 +75,23 @@
         <description>Block replication</description>
     </property>
 
-    <!-- memory configuration for sandbox -->
+    <!--Additional config for in-mem cubing, giving mapper more memory -->
     <property>
         <name>mapreduce.map.memory.mb</name>
         <value>768</value>
+        <description></description>
     </property>
 
     <property>
         <name>mapreduce.map.java.opts</name>
         <value>-Xmx700m</value>
+        <description></description>
     </property>
 
     <property>
         <name>mapreduce.task.io.sort.mb</name>
-        <value>30</value>
-    </property>
-
-    <property>
-        <name>mapreduce.reduce.memory.mb</name>
-        <value>512</value>
-    </property>
-
-    <property>
-        <name>mapreduce.reduce.java.opts</name>
-        <value>-Xmx400m</value>
+        <value>10</value>
+        <description></description>
     </property>
 
 </configuration>

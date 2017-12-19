@@ -29,7 +29,7 @@ import com.google.common.base.Preconditions;
 
 public class MemoryBudgetController {
 
-    private static final boolean debug = false;
+    private static final boolean debug = true;
 
     public interface MemoryConsumer {
         // return number MB released

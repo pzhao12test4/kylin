@@ -81,11 +81,6 @@ public class QueryUtilTest extends LocalFileMetadataTestCase {
             boolean selectStatement = QueryUtil.isSelectStatement(sql);
             Assert.assertEquals(false, selectStatement);
         }
-        {
-            String sql = " explain plan for select count(*) from test_kylin_fact\n";
-            boolean selectStatement = QueryUtil.isSelectStatement(sql);
-            Assert.assertEquals(true, selectStatement);
-        }
     }
 
     @Test

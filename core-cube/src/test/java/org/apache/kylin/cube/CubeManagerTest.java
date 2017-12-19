@@ -28,6 +28,7 @@ import java.util.NavigableSet;
 
 import org.apache.kylin.common.KylinConfig;
 import org.apache.kylin.common.persistence.ResourceStore;
+import org.apache.kylin.common.util.JsonUtil;
 import org.apache.kylin.common.util.LocalFileMetadataTestCase;
 import org.apache.kylin.cube.model.CubeDesc;
 import org.apache.kylin.metadata.model.SegmentRange;
@@ -61,7 +62,7 @@ public class CubeManagerTest extends LocalFileMetadataTestCase {
 
         CubeInstance cube = CubeManager.getInstance(getTestConfig()).getCube("test_kylin_cube_without_slr_ready");
         CubeDesc desc = cube.getDescriptor();
-        //System.out.println(JsonUtil.writeValueAsIndentString(desc));
+        System.out.println(JsonUtil.writeValueAsIndentString(desc));
 
         String signature = desc.calculateSignature();
         desc.getModel().getPartitionDesc().setPartitionDateColumn("test_column");
@@ -302,18 +303,6 @@ public class CubeManagerTest extends LocalFileMetadataTestCase {
 
         assertTrue(mergedSeg != null);
         assertTrue((Long) mergedSeg.start.v == 0 && (Long) mergedSeg.end.v == 8000);
-    }
-
-    @Test
-    public void testGetCubeNameWithNamespace() {
-        System.setProperty("kylin.storage.hbase.table-name-prefix", "HELLO_");
-        try {
-            CubeManager mgr = CubeManager.getInstance(getTestConfig());
-            String tablename = mgr.generateStorageLocation();
-            assertTrue(tablename.startsWith("HELLO_"));
-        } finally {
-            System.clearProperty("kylin.storage.hbase.table-name-prefix");
-        }
     }
 
     public CubeDescManager getCubeDescManager() {

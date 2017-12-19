@@ -114,7 +114,7 @@ public class TableService extends BasicService {
     }
 
     public String[] loadHiveTablesToProject(String[] tables, String project) throws Exception {
-        aclEvaluate.checkProjectAdminPermission(project);
+        aclEvaluate.checkProjectWritePermission(project);
         // de-dup
         SetMultimap<String, String> db2tables = LinkedHashMultimap.create();
         for (String fullTableName : tables) {
@@ -182,7 +182,7 @@ public class TableService extends BasicService {
     }
     
     public Map<String, String[]> loadHiveTables(String[] tableNames, String project, boolean isNeedProfile) throws Exception {
-        aclEvaluate.checkProjectAdminPermission(project);
+        aclEvaluate.checkProjectWritePermission(project);
         String submitter = SecurityContextHolder.getContext().getAuthentication().getName();
         Map<String, String[]> result = new HashMap<String, String[]>();
 
@@ -205,13 +205,13 @@ public class TableService extends BasicService {
     }
 
     public Map<String, String[]> unloadHiveTables(String[] tableNames, String project) throws IOException {
-        aclEvaluate.checkProjectAdminPermission(project);
+        aclEvaluate.checkProjectWritePermission(project);
         Set<String> unLoadSuccess = Sets.newHashSet();
         Set<String> unLoadFail = Sets.newHashSet();
         Map<String, String[]> result = new HashMap<String, String[]>();
 
         for (String tableName : tableNames) {
-            if (unloadHiveTable(tableName, project)) {
+            if (unLoadHiveTable(tableName, project)) {
                 unLoadSuccess.add(tableName);
             } else {
                 unLoadFail.add(tableName);
@@ -239,8 +239,8 @@ public class TableService extends BasicService {
      * @param project
      * @return
      */
-    public boolean unloadHiveTable(String tableName, String project) throws IOException {
-        aclEvaluate.checkProjectAdminPermission(project);
+    public boolean unLoadHiveTable(String tableName, String project) throws IOException {
+        aclEvaluate.checkProjectWritePermission(project);
         Message msg = MsgPicker.getMsg();
 
         boolean rtn = false;
@@ -250,10 +250,8 @@ public class TableService extends BasicService {
         TableDesc desc = getMetadataManager().getTableDesc(tableName, project);
         
         // unload of legacy global table is not supported for now
-        if (desc == null || desc.getProject() == null) {
-            logger.warn("Unload Table {} in Project {} failed, could not find TableDesc or related Project", tableName, project);
+        if (desc == null || desc.getProject() == null)
             return false;
-        }
         
         tableType = desc.getSourceType();
 
@@ -295,7 +293,7 @@ public class TableService extends BasicService {
      * @throws IOException
      */
     public void addStreamingTable(TableDesc desc, String project) throws IOException {
-        aclEvaluate.checkProjectAdminPermission(project);
+        aclEvaluate.checkProjectWritePermission(project);
         desc.setUuid(UUID.randomUUID().toString());
         getMetadataManager().saveSourceTable(desc, project);
         syncTableToProject(new String[] { desc.getIdentity() }, project);

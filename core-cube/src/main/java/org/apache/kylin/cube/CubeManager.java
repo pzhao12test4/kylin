@@ -65,6 +65,7 @@ import org.apache.kylin.metadata.model.TblColRef;
 import org.apache.kylin.metadata.project.ProjectInstance;
 import org.apache.kylin.metadata.project.ProjectManager;
 import org.apache.kylin.metadata.realization.IRealization;
+import org.apache.kylin.metadata.realization.IRealizationConstants;
 import org.apache.kylin.metadata.realization.IRealizationProvider;
 import org.apache.kylin.metadata.realization.RealizationStatusEnum;
 import org.apache.kylin.metadata.realization.RealizationType;
@@ -74,7 +75,6 @@ import org.apache.kylin.source.SourcePartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 
@@ -314,6 +314,9 @@ public class CubeManager implements IRealizationProvider {
         // delete cube from project
         ProjectManager.getInstance(config).removeRealizationsFromProjects(RealizationType.CUBE, cubeName);
 
+        if (listener != null)
+            listener.afterCubeDelete(cube);
+
         return cube;
     }
 
@@ -329,6 +332,9 @@ public class CubeManager implements IRealizationProvider {
         updateCubeWithRetry(new CubeUpdate(cube), 0);
         ProjectManager.getInstance(config).moveRealizationToProject(RealizationType.CUBE, cubeName, projectName, owner);
 
+        if (listener != null)
+            listener.afterCubeCreate(cube);
+
         return cube;
     }
 
@@ -342,11 +348,18 @@ public class CubeManager implements IRealizationProvider {
         ProjectManager.getInstance(config).moveRealizationToProject(RealizationType.CUBE, cube.getName(), projectName,
                 owner);
 
+        if (listener != null)
+            listener.afterCubeCreate(cube);
+
         return cube;
     }
 
     public CubeInstance updateCube(CubeUpdate update) throws IOException {
         CubeInstance cube = updateCubeWithRetry(update, 0);
+
+        if (listener != null)
+            listener.afterCubeUpdate(cube);
+
         return cube;
     }
 
@@ -403,10 +416,6 @@ public class CubeManager implements IRealizationProvider {
 
         if (update.getCost() > 0) {
             cube.setCost(update.getCost());
-        }
-
-        if (update.getCuboids() != null) {
-            cube.setCuboids(update.getCuboids());
         }
 
         try {
@@ -674,19 +683,21 @@ public class CubeManager implements IRealizationProvider {
         return segment;
     }
 
-    @VisibleForTesting
-    /*private*/ String generateStorageLocation() {
-        String namePrefix = config.getHBaseTableNamePrefix();
+    private String generateStorageLocation() {
+        String namespace = config.getHBaseStorageNameSpace();
+        String namePrefix = IRealizationConstants.CubeHbaseStorageLocationPrefix;
         String tableName = "";
         Random ran = new Random();
         do {
             StringBuffer sb = new StringBuffer();
+            sb.append(namespace).append(":");
             sb.append(namePrefix);
             for (int i = 0; i < HBASE_TABLE_LENGTH; i++) {
                 sb.append(ALPHA_NUM.charAt(ran.nextInt(ALPHA_NUM.length())));
             }
             tableName = sb.toString();
         } while (this.usedStorageLocation.containsValue(tableName));
+
         return tableName;
     }
 
@@ -833,6 +844,23 @@ public class CubeManager implements IRealizationProvider {
     public IRealization getRealization(String name) {
         return getCube(name);
     }
+
+    // ============================================================================
+
+    public interface CubeChangeListener {
+        void afterCubeCreate(CubeInstance cube);
+
+        void afterCubeUpdate(CubeInstance cube);
+
+        void afterCubeDelete(CubeInstance cube);
+    }
+
+    private CubeChangeListener listener;
+
+    public void setCubeChangeListener(CubeChangeListener listener) {
+        this.listener = listener;
+    }
+
 
     /**
      * Calculate the holes (gaps) in segments.

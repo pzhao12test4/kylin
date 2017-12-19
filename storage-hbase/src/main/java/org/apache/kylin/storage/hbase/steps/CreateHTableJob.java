@@ -131,10 +131,8 @@ public class CreateHTableJob extends AbstractHadoopJob {
 
         logger.info((rowkeyList.size() + 1) + " regions");
         logger.info(rowkeyList.size() + " splits");
-        if (logger.isTraceEnabled()) {
-            for (byte[] split : rowkeyList) {
-                logger.trace(StringUtils.byteToHexString(split));
-            }
+        for (byte[] split : rowkeyList) {
+            logger.info(StringUtils.byteToHexString(split));
         }
 
         byte[][] retValue = rowkeyList.toArray(new byte[rowkeyList.size()][]);
@@ -277,7 +275,7 @@ public class CreateHTableJob extends AbstractHadoopJob {
 
         // note read-write separation, respect HBase FS here
         Configuration hbaseConf = HBaseConnection.getCurrentHBaseConfiguration();
-        FileSystem fs = HadoopUtil.getFileSystem(outputFolder, hbaseConf);
+        FileSystem fs = HadoopUtil.getWorkingFileSystem(hbaseConf);
         if (fs.exists(outputFolder) == false) {
             fs.mkdirs(outputFolder);
         }

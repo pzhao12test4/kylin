@@ -20,11 +20,8 @@ package org.apache.kylin.metadata.acl;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
 
 import org.apache.kylin.common.persistence.RootPersistentEntity;
 
@@ -42,7 +39,7 @@ public class TableACL extends RootPersistentEntity {
     @JsonProperty()
     private Map<String, TableBlackList> userTableBlackList;
 
-    TableACL() {
+    public TableACL() {
         userTableBlackList = new HashMap<>();
     }
 
@@ -50,9 +47,8 @@ public class TableACL extends RootPersistentEntity {
         return userTableBlackList;
     }
 
-    public Set<String> getTableBlackList(String username) {
+    public List<String> getTableBlackList(String username) {
         TableBlackList tableBlackList = userTableBlackList.get(username);
-        //table intercept will use this, return an empty set then null
         if (tableBlackList == null) {
             tableBlackList = new TableBlackList();
         }
@@ -60,7 +56,7 @@ public class TableACL extends RootPersistentEntity {
     }
 
     //get users that can not query the table
-    public List<String> getUsersCannotQueryTheTbl(String table) {
+    public List<String> getBlockedUserByTable(String table) {
         List<String> results = new ArrayList<>();
         for (String user : userTableBlackList.keySet()) {
             TableBlackList tables = userTableBlackList.get(user);
@@ -84,45 +80,8 @@ public class TableACL extends RootPersistentEntity {
 
         //before add, check exists
         checkACLExists(username, table, tableBlackList);
-        tableBlackList.addTbl(table);
+        tableBlackList.add(table);
         return this;
-    }
-
-    public TableACL delete(String username, String table) {
-        checkTableInBlackList(username, table);
-        TableBlackList tableBlackList = userTableBlackList.get(username);
-        tableBlackList.removeTbl(table);
-        if (tableBlackList.isEmpty()) {
-            userTableBlackList.remove(username);
-        }
-        return this;
-    }
-
-    public TableACL delete(String username) {
-        checkUserHasACL(username);
-        userTableBlackList.remove(username);
-        return this;
-    }
-
-    public TableACL deleteByTbl(String table) {
-        Iterator<Map.Entry<String, TableBlackList>> it = userTableBlackList.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry<String, TableBlackList> entry = it.next();
-            TableBlackList tableBlackList = entry.getValue();
-            tableBlackList.removeTbl(table);
-            if (tableBlackList.isEmpty()) {
-                it.remove();
-            }
-        }
-
-        return this;
-    }
-
-    private void checkUserHasACL(String username) {
-        if (userTableBlackList.get(username) == null || userTableBlackList.get(username).isEmpty()) {
-            throw new RuntimeException("Operation fail, can not grant user table query permission.User:" + username
-                    + " already has permission!");
-        }
     }
 
     private void checkACLExists(String username, String table, TableBlackList tableBlackList) {
@@ -132,13 +91,20 @@ public class TableACL extends RootPersistentEntity {
         }
     }
 
-    private void checkTableInBlackList(String username, String table) {
-        if (userTableBlackList == null
-                || userTableBlackList.get(username) == null
-                || (!userTableBlackList.get(username).contains(table))) {
+    public TableACL delete(String username, String table) {
+        if (isTableInBlackList(username, table)) {
             throw new RuntimeException("Operation fail, can not grant user table query permission.Table ACL " + table
                     + ":" + username + " is not found!");
         }
+        TableBlackList tableBlackList = userTableBlackList.get(username);
+        tableBlackList.remove(table);
+        return this;
+    }
+
+    private boolean isTableInBlackList(String username, String table) {
+        return userTableBlackList == null
+                || userTableBlackList.get(username) == null
+                || (!userTableBlackList.get(username).contains(table));
     }
 
     @JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.NONE,
@@ -147,10 +113,10 @@ public class TableACL extends RootPersistentEntity {
             setterVisibility = JsonAutoDetect.Visibility.NONE)
     static class TableBlackList {
         @JsonProperty()
-        Set<String> tables;
+        List<String> tables;
 
         TableBlackList() {
-            tables = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+            tables = new ArrayList<>();
         }
 
         public int size() {
@@ -165,15 +131,15 @@ public class TableACL extends RootPersistentEntity {
             return tables.contains(s);
         }
 
-        void addTbl(String s) {
-            tables.add(s);
+        public boolean add(String s) {
+            return tables.add(s);
         }
 
-        void removeTbl(String s) {
-            tables.remove(s);
+        public boolean remove(String s) {
+            return tables.remove(s);
         }
 
-        public Set<String> getTables() {
+        public List<String> getTables() {
             return tables;
         }
     }

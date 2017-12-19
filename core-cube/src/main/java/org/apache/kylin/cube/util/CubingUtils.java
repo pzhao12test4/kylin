@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.kylin.common.util.ByteArray;
 import org.apache.kylin.common.util.Dictionary;
 import org.apache.kylin.cube.CubeInstance;
 import org.apache.kylin.cube.CubeSegment;
@@ -78,16 +79,19 @@ public class CubingUtils {
         }
 
         HashFunction hf = Hashing.murmur3_32();
-        byte[][] row_hashcodes = new byte[rowkeyLength][];
+        ByteArray[] row_hashcodes = new ByteArray[rowkeyLength];
+        for (int i = 0; i < rowkeyLength; i++) {
+            row_hashcodes[i] = new ByteArray();
+        }
         for (List<String> row : streams) {
             //generate hash for each row key column
             for (int i = 0; i < rowkeyLength; i++) {
                 Hasher hc = hf.newHasher();
                 final String cell = row.get(flatDesc.getRowKeyColumnIndexes()[i]);
                 if (cell != null) {
-                    row_hashcodes[i] = hc.putString(cell).hash().asBytes();
+                    row_hashcodes[i].set(hc.putString(cell).hash().asBytes());
                 } else {
-                    row_hashcodes[i] = hc.putInt(0).hash().asBytes();
+                    row_hashcodes[i].set(hc.putInt(0).hash().asBytes());
                 }
             }
 
@@ -97,7 +101,7 @@ public class CubingUtils {
                 Hasher hc = hf.newHasher();
                 final Integer[] cuboidBitSet = allCuboidsBitSet.get(cuboidId);
                 for (int position = 0; position < cuboidBitSet.length; position++) {
-                    hc.putBytes(row_hashcodes[cuboidBitSet[position]]);
+                    hc.putBytes(row_hashcodes[cuboidBitSet[position]].array());
                 }
                 counter.add(hc.hash().asBytes());
             }
