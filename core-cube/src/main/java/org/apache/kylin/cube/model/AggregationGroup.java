@@ -343,6 +343,9 @@ public class AggregationGroup implements Serializable {
             combination = Long.MAX_VALUE;
         }
 
+        if (combination < 0) { // overflow
+            combination = Long.MAX_VALUE - 1;
+        }
         return combination;
     }
 
