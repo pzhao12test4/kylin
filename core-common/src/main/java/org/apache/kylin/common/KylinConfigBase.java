@@ -392,6 +392,10 @@ abstract public class KylinConfigBase implements Serializable {
         return Boolean.parseBoolean(getOptional("kylin.cube.aggrgroup.is-mandatory-only-valid", "false"));
     }
 
+    public int getCubeRowkeyMaxSize() {
+        return Integer.parseInt(getOptional("kylin.cube.rowkey.max-size", "63"));
+    }
+
     public int getMaxBuildingSegments() {
         return Integer.parseInt(getOptional("kylin.cube.max-building-segments", "10"));
     }
@@ -1106,6 +1110,10 @@ abstract public class KylinConfigBase implements Serializable {
 
     public boolean isPushDownEnabled() {
         return StringUtils.isNotEmpty(getPushDownRunnerClassName());
+    }
+
+    public boolean isPushDownUpdateEnabled() {
+        return Boolean.parseBoolean(this.getOptional("kylin.query.pushdown.update-enabled", "false"));
     }
 
     public String getPushDownRunnerClassName() {
