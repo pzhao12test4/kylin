@@ -1,6 +1,7 @@
 {
   "uuid" : "0ef9b7a8-3929-4dff-b59d-2100aadc8dbf",
   "last_modified" : 1451468470824,
+  "version": "%default_version%",
   "name" : "kylin_sales_cube",
   "model_name" : "kylin_sales_model",
   "description" : null,
@@ -174,7 +175,11 @@
           "next_parameter" : null
         }
       },
-      "returntype" : "topn(100, 6)"
+      "returntype" : "topn(100)",
+      "configuration": {
+        "topn.encoding.KYLIN_SALES.SELLER_ID": "dict",
+        "topn.encoding_version.KYLIN_SALES.SELLER_ID": "1"
+      }
     }
   } ],
   "rowkey" : {
