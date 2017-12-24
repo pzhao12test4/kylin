@@ -209,9 +209,9 @@ public class MergeCuboidMapper extends KylinMapper<Text, Text, Text, Text> {
 
         int fullKeySize = rowkeyEncoder.getBytesLength();
         while (newKeyBuf.array().length < fullKeySize) {
-            newKeyBuf = new ByteArray(newKeyBuf.length() * 2);
+            newKeyBuf.set(new byte[newKeyBuf.length() * 2]);
         }
-        newKeyBuf.setLength(fullKeySize);
+        newKeyBuf.set(0, fullKeySize);
 
         rowkeyEncoder.encode(new ByteArray(newKeyBodyBuf, 0, bufOffset), newKeyBuf);
         outputKey.set(newKeyBuf.array(), 0, fullKeySize);

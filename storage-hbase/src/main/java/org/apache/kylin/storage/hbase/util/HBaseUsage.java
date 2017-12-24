@@ -43,10 +43,9 @@ public class HBaseUsage {
         Map<String, List<String>> envs = Maps.newHashMap();
 
         // get all kylin hbase tables
-        KylinConfig kylinConfig = KylinConfig.getInstanceFromEnv();
-        Connection conn = HBaseConnection.get(kylinConfig.getStorageUrl());
+        Connection conn = HBaseConnection.get(KylinConfig.getInstanceFromEnv().getStorageUrl());
         Admin hbaseAdmin = conn.getAdmin();
-        String tableNamePrefix = kylinConfig.getHBaseTableNamePrefix();
+        String tableNamePrefix = IRealizationConstants.SharedHbaseStorageLocationPrefix;
         HTableDescriptor[] tableDescriptors = hbaseAdmin.listTables(tableNamePrefix + ".*");
         for (HTableDescriptor desc : tableDescriptors) {
             String host = desc.getValue(IRealizationConstants.HTableTag);

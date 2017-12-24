@@ -18,17 +18,16 @@
 
 package org.apache.kylin.gridtable;
 
-import java.util.Comparator;
-import java.util.Iterator;
-import java.util.NoSuchElementException;
-
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.PeekingIterator;
 import org.apache.kylin.common.util.ImmutableBitSet;
 import org.apache.kylin.measure.BufferedMeasureCodec;
 import org.apache.kylin.measure.MeasureAggregator;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.PeekingIterator;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 /**
  * GTStreamAggregateScanner requires input records to be sorted on group fields.
@@ -162,7 +161,7 @@ public class GTStreamAggregateScanner extends GTForwardingScanner {
             int offset = 0;
             for (int i = 0; i < metrics.trueBitCount(); i++) {
                 int c = metrics.trueBitAt(i);
-                returnRecord.cols[c].reset(bytes, offset, sizes[i]);
+                returnRecord.cols[c].set(bytes, offset, sizes[i]);
                 offset += sizes[i];
             }
             return returnRecord;

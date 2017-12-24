@@ -25,7 +25,6 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import org.apache.kylin.common.KylinConfig;
-import org.apache.kylin.common.debug.BackdoorToggles;
 import org.apache.kylin.cube.CubeInstance;
 import org.apache.kylin.metadata.model.ColumnDesc;
 import org.apache.kylin.metadata.model.DataModelDesc;
@@ -44,7 +43,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
@@ -55,9 +53,7 @@ public class RealizationChooser {
     // select models for given contexts, return realization candidates for each context
     public static void selectRealization(List<OLAPContext> contexts) {
         // try different model for different context
-
         for (OLAPContext ctx : contexts) {
-            ctx.realizationCheck = new RealizationCheck();
             attemptSelectRealization(ctx);
             Preconditions.checkNotNull(ctx.realization);
         }
@@ -68,19 +64,6 @@ public class RealizationChooser {
 
         if (modelMap.size() == 0) {
             throw new NoRealizationFoundException("No model found for " + toErrorMsg(context));
-        }
-
-        //check all models to collect error message, just for check
-        if (BackdoorToggles.getCheckAllModels()) {
-            for (Map.Entry<DataModelDesc, Set<IRealization>> entry : modelMap.entrySet()) {
-                final DataModelDesc model = entry.getKey();
-                final Map<String, String> aliasMap = matches(model, context);
-                if (aliasMap != null) {
-                    fixModel(context, model, aliasMap);
-                    QueryRouter.selectRealization(context, entry.getValue());
-                    unfixModel(context);
-                }
-            }
         }
 
         for (Map.Entry<DataModelDesc, Set<IRealization>> entry : modelMap.entrySet()) {
@@ -126,8 +109,6 @@ public class RealizationChooser {
             matchUp = ImmutableMap.of(firstTable.getAlias(), modelAlias);
         } else if (ctx.joins.size() != ctx.allTableScans.size() - 1) {
             // has hanging tables
-            ctx.realizationCheck.addModelIncapableReason(model,
-                    RealizationCheck.IncapableReason.create(RealizationCheck.IncapableType.MODEL_BAD_JOIN_SEQUENCE));
             throw new IllegalStateException("Please adjust the sequence of join tables. " + toErrorMsg(ctx));
         } else {
             // normal big joins
@@ -137,13 +118,9 @@ public class RealizationChooser {
             matchUp = ctx.joinsTree.matches(model.getJoinsTree(), result);
         }
 
-        if (matchUp == null) {
-            ctx.realizationCheck.addModelIncapableReason(model,
-                    RealizationCheck.IncapableReason.create(RealizationCheck.IncapableType.MODEL_UNMATCHED_JOIN));
+        if (matchUp == null)
             return null;
-        }
 
-        ctx.realizationCheck.addCapableModel(model);
         result.putAll(matchUp);
 
         return result;
@@ -154,28 +131,17 @@ public class RealizationChooser {
         KylinConfig kylinConfig = first.olapSchema.getConfig();
         String projectName = first.olapSchema.getProjectName();
         String factTableName = first.firstTableScan.getOlapTable().getTableName();
-        Set<IRealization> realizations = ProjectManager.getInstance(kylinConfig).getRealizationsByTable(projectName,
-                factTableName);
+        Set<IRealization> realizations = ProjectManager.getInstance(kylinConfig).getRealizationsByTable(projectName, factTableName);
 
         final Map<DataModelDesc, Set<IRealization>> models = Maps.newHashMap();
         final Map<DataModelDesc, RealizationCost> costs = Maps.newHashMap();
-
         for (IRealization real : realizations) {
-            if (real.isReady() == false) {
-                context.realizationCheck.addIncapableCube(real,
-                        RealizationCheck.IncapableReason.create(RealizationCheck.IncapableType.CUBE_NOT_READY));
+            if (real.isReady() == false)
                 continue;
-            }
-            if (containsAll(real.getAllColumnDescs(), first.allColumns) == false) {
-                context.realizationCheck.addIncapableCube(real, RealizationCheck.IncapableReason
-                        .notContainAllColumn(notContain(real.getAllColumnDescs(), first.allColumns)));
+            if (containsAll(real.getAllColumnDescs(), first.allColumns) == false)
                 continue;
-            }
-            if (RemoveBlackoutRealizationsRule.accept(real) == false) {
-                context.realizationCheck.addIncapableCube(real, RealizationCheck.IncapableReason
-                        .create(RealizationCheck.IncapableType.CUBE_BLACK_OUT_REALIZATION));
+            if (RemoveBlackoutRealizationsRule.accept(real) == false)
                 continue;
-            }
 
             RealizationCost cost = new RealizationCost(real);
             DataModelDesc m = real.getModel();
@@ -218,15 +184,6 @@ public class RealizationChooser {
         return true;
     }
 
-    private static List<TblColRef> notContain(Set<ColumnDesc> allColumnDescs, Set<TblColRef> allColumns) {
-        List<TblColRef> notContainCols = Lists.newArrayList();
-        for (TblColRef col : allColumns) {
-            if (!allColumnDescs.contains(col.getColumnDesc()))
-                notContainCols.add(col);
-        }
-        return notContainCols;
-    }
-
     private static void fixModel(OLAPContext context, DataModelDesc model, Map<String, String> aliasMap) {
         for (OLAPTableScan tableScan : context.allTableScans) {
             tableScan.fixColumnRowTypeWithModel(model, aliasMap);
@@ -248,8 +205,7 @@ public class RealizationChooser {
             this.priority = Candidate.PRIORITIES.get(real.getType());
 
             // ref CubeInstance.getCost()
-            int c = real.getAllDimensions().size() * CubeInstance.COST_WEIGHT_DIMENSION
-                    + real.getMeasures().size() * CubeInstance.COST_WEIGHT_MEASURE;
+            int c = real.getAllDimensions().size() * CubeInstance.COST_WEIGHT_DIMENSION + real.getMeasures().size() * CubeInstance.COST_WEIGHT_MEASURE;
             for (JoinTableDesc join : real.getModel().getJoinTables()) {
                 if (join.getJoin().isInnerJoin())
                     c += CubeInstance.COST_WEIGHT_INNER_JOIN;

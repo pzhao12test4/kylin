@@ -17,15 +17,11 @@
 */
 package org.apache.kylin.dict;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.util.Arrays;
-import java.util.Objects;
-import java.util.TreeMap;
-import java.util.concurrent.ExecutionException;
-
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import com.google.common.cache.RemovalListener;
+import com.google.common.cache.RemovalNotification;
 import org.apache.hadoop.fs.Path;
 import org.apache.kylin.common.KylinConfig;
 import org.apache.kylin.common.util.Dictionary;
@@ -36,12 +32,14 @@ import org.apache.kylin.dict.global.GlobalDictMetadata;
 import org.apache.kylin.dict.global.GlobalDictStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import com.google.common.cache.RemovalListener;
-import com.google.common.cache.RemovalNotification;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.concurrent.ExecutionException;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * A dictionary based on Trie data structure that maps enumerations of byte[] to
@@ -74,12 +72,7 @@ public class AppendTrieDictionary<T> extends CacheDictionary<T> {
         this.baseDir = baseDir;
         final GlobalDictStore globalDictStore = new GlobalDictHDFSStore(baseDir);
         Long[] versions = globalDictStore.listAllVersions();
-
-        if (versions.length == 0) {
-            this.metadata = new GlobalDictMetadata(0, 0, 0, 0, null, new TreeMap<AppendDictSliceKey, String>());
-            return; // for the removed SegmentAppendTrieDictBuilder
-        }
-
+        checkState(versions.length > 0, "Global dict at %s is empty", baseDir);
         final long latestVersion = versions[versions.length - 1];
         final Path latestVersionPath = globalDictStore.getVersionDir(latestVersion);
         this.metadata = globalDictStore.getMetadata(latestVersion);
@@ -93,7 +86,7 @@ public class AppendTrieDictionary<T> extends CacheDictionary<T> {
             @Override
             public AppendDictSlice load(AppendDictSliceKey key) throws Exception {
                 AppendDictSlice slice = globalDictStore.readSlice(latestVersionPath.toString(), metadata.sliceFileMap.get(key));
-                logger.trace("Load slice with key {} and value {}", key, slice);
+                logger.info("Load slice with key {} and value {}", key, slice);
                 return slice;
             }
         });

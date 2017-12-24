@@ -50,6 +50,7 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.kylin.common.KylinConfig;
 import org.apache.kylin.common.util.AbstractApplication;
+import org.apache.kylin.common.util.ByteArray;
 import org.apache.kylin.common.util.ClassUtil;
 import org.apache.kylin.common.util.Dictionary;
 import org.apache.kylin.common.util.OptionsHelper;
@@ -265,7 +266,7 @@ public class SparkCubing extends AbstractApplication {
         final int nRowKey = cubeDesc.getRowkey().getRowKeyColumns().length;
         final long baseCuboidId = Cuboid.getBaseCuboidId(cubeDesc);
         final Map<Long, Integer[]> allCuboidsBitSet = Maps.newHashMapWithExpectedSize(allCuboidIds.size());
-        final byte[][] row_hashcodes = new byte[nRowKey][];
+        final ByteArray[] row_hashcodes = new ByteArray[nRowKey];
 
         for (Long cuboidId : allCuboidIds) {
             Integer[] cuboidBitSet = new Integer[Long.bitCount(cuboidId)];
@@ -281,6 +282,9 @@ public class SparkCubing extends AbstractApplication {
             }
             allCuboidsBitSet.put(cuboidId, cuboidBitSet);
         }
+        for (int i = 0; i < nRowKey; ++i) {
+            row_hashcodes[i] = new ByteArray();
+        }
 
         final HashMap<Long, HLLCounter> samplingResult = rowJavaRDD.aggregate(zeroValue, new Function2<HashMap<Long, HLLCounter>, List<String>, HashMap<Long, HLLCounter>>() {
 
@@ -292,9 +296,9 @@ public class SparkCubing extends AbstractApplication {
                     Hasher hc = hashFunction.newHasher();
                     String colValue = v2.get(rowKeyColumnIndexes[i]);
                     if (colValue != null) {
-                        row_hashcodes[i] = hc.putString(colValue).hash().asBytes();
+                        row_hashcodes[i].set(hc.putString(colValue).hash().asBytes());
                     } else {
-                        row_hashcodes[i] = hc.putInt(0).hash().asBytes();
+                        row_hashcodes[i].set(hc.putInt(0).hash().asBytes());
                     }
                 }
 
@@ -303,7 +307,7 @@ public class SparkCubing extends AbstractApplication {
                     HLLCounter counter = v1.get(entry.getKey());
                     final Integer[] cuboidBitSet = entry.getValue();
                     for (int position = 0; position < cuboidBitSet.length; position++) {
-                        hc.putBytes(row_hashcodes[cuboidBitSet[position]]);
+                        hc.putBytes(row_hashcodes[cuboidBitSet[position]].array());
                     }
                     counter.add(hc.hash().asBytes());
                 }

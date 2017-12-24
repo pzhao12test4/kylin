@@ -19,12 +19,10 @@
 
 package org.apache.kylin.engine.mr.steps;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Random;
-import java.util.Set;
-
+import com.google.common.collect.Lists;
+import com.google.common.hash.HashFunction;
+import com.google.common.hash.Hasher;
+import com.google.common.hash.Hashing;
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.kylin.common.util.ByteArray;
 import org.apache.kylin.common.util.Bytes;
@@ -34,10 +32,11 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import com.google.common.collect.Lists;
-import com.google.common.hash.HashFunction;
-import com.google.common.hash.Hasher;
-import com.google.common.hash.Hashing;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
 
 @Ignore
 public class NewCubeSamplingMethodTest {
@@ -77,7 +76,7 @@ public class NewCubeSamplingMethodTest {
 
     public void comparePerformanceBasic(final List<List<String>> rows) throws Exception {
         //old hash method
-        byte[][] colHashValues = new byte[ROW_LENGTH][];
+        ByteArray[] colHashValues = getNewColHashValues(ROW_LENGTH);
         HLLCounter[] cuboidCounters = getNewCuboidCounters(allCuboidsBitSet.length);
         long start = System.currentTimeMillis();
         for (List<String> row : rows) {
@@ -86,7 +85,7 @@ public class NewCubeSamplingMethodTest {
         long totalTime = System.currentTimeMillis() - start;
         System.out.println("old method cost time : " + totalTime);
         //new hash method
-        colHashValues = new byte[ROW_LENGTH][];
+        colHashValues = getNewColHashValues(ROW_LENGTH);
         cuboidCounters = getNewCuboidCounters(allCuboidsBitSet.length);
         start = System.currentTimeMillis();
         long[] valueHashLong = new long[allCuboidsBitSet.length];
@@ -106,19 +105,19 @@ public class NewCubeSamplingMethodTest {
             @Override
             public void run() throws Exception {
                 HLLCounter counter = new HLLCounter(14, RegisterType.DENSE);
-                final byte[][] colHashValues = new byte[ROW_LENGTH][];
+                final ByteArray[] colHashValues = getNewColHashValues(ROW_LENGTH);
                 HashFunction hf = Hashing.murmur3_32();
                 for (List<String> row : rows) {
 
                     int x = 0;
                     for (String field : row) {
                         Hasher hc = hf.newHasher();
-                        colHashValues[x++] = hc.putString(field).hash().asBytes();
+                        colHashValues[x++].set(hc.putString(field).hash().asBytes());
                     }
 
                     Hasher hc = hf.newHasher();
                     for (int position = 0; position < colHashValues.length; position++) {
-                        hc.putBytes(colHashValues[position]);
+                        hc.putBytes(colHashValues[position].array());
                     }
                     counter.add(hc.hash().asBytes());
                 }
@@ -209,17 +208,17 @@ public class NewCubeSamplingMethodTest {
         void run() throws Exception;
     }
 
-    private void putRowKeyToHLL(List<String> row, byte[][] colHashValues, HLLCounter[] cuboidCounters, HashFunction hashFunction) {
+    private void putRowKeyToHLL(List<String> row, ByteArray[] colHashValues, HLLCounter[] cuboidCounters, HashFunction hashFunction) {
         int x = 0;
         for (String field : row) {
             Hasher hc = hashFunction.newHasher();
-            colHashValues[x++] = hc.putString(field).hash().asBytes();
+            colHashValues[x++].set(hc.putString(field).hash().asBytes());
         }
 
         for (int i = 0, n = allCuboidsBitSet.length; i < n; i++) {
             Hasher hc = hashFunction.newHasher();
             for (int position = 0; position < allCuboidsBitSet[i].length; position++) {
-                hc.putBytes(colHashValues[allCuboidsBitSet[i][position]]);
+                hc.putBytes(colHashValues[allCuboidsBitSet[i][position]].array());
                 //hc.putBytes(seperator);
             }
             cuboidCounters[i].add(hc.hash().asBytes());

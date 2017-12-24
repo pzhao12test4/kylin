@@ -438,7 +438,7 @@ public class JobService extends BasicService implements InitializingBean {
                             if (executableCubeName == null)
                                 return true;
                             if (nameExactMatch)
-                                return executableCubeName.equalsIgnoreCase(cubeName);
+                                return executableCubeName.toLowerCase().equals(cubeName);
                             else
                                 return executableCubeName.toLowerCase().contains(cubeName.toLowerCase());
                         } else {
@@ -456,7 +456,7 @@ public class JobService extends BasicService implements InitializingBean {
                         if (null == projectName || null == getProjectManager().getProject(projectName)) {
                             return true;
                         } else {
-                            return projectName.equalsIgnoreCase(executable.getProjectName());
+                            return projectName.equals(executable.getProjectName());
                         }
                     }
                 }, new Predicate<CubingJob>() {
@@ -487,9 +487,9 @@ public class JobService extends BasicService implements InitializingBean {
                         }
 
                         if (nameExactMatch) {
-                            return cubeJob.getName().equalsIgnoreCase(jobName);
+                            return cubeJob.getName().toLowerCase().equals(jobName);
                         } else {
-                            return cubeJob.getName().toLowerCase().contains(jobName.toLowerCase());
+                            return cubeJob.getName().toLowerCase().contains(jobName);
                         }
                     }
                 })));

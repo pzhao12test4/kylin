@@ -421,7 +421,7 @@ public class DataModelDesc extends RootPersistentEntity {
             throw new IllegalStateException("Root fact table does not exist:" + rootFactTable);
 
         TableDesc rootDesc = tables.get(rootFactTable);
-        rootFactTableRef = new TableRef(this, rootDesc.getName(), rootDesc, false);
+        rootFactTableRef = new TableRef(this, rootDesc.getName(), rootDesc);
 
         addAlias(rootFactTableRef);
         factTableRefs.add(rootFactTableRef);
@@ -440,7 +440,7 @@ public class DataModelDesc extends RootPersistentEntity {
             alias = alias.toUpperCase();
             join.setAlias(alias);
 
-            TableRef ref = new TableRef(this, alias, tableDesc, true);
+            TableRef ref = new TableRef(this, alias, tableDesc);
 
             join.setTableRef(ref);
             addAlias(ref);
@@ -843,10 +843,12 @@ public class DataModelDesc extends RootPersistentEntity {
         return metrics;
     }
 
+    @Deprecated
     public void setDimensions(List<ModelDimensionDesc> dimensions) {
         this.dimensions = dimensions;
     }
 
+    @Deprecated
     public void setMetrics(String[] metrics) {
         this.metrics = metrics;
     }
@@ -871,11 +873,9 @@ public class DataModelDesc extends RootPersistentEntity {
         copy.dimensions = orig.dimensions;
         copy.metrics = orig.metrics;
         copy.filterCondition = orig.filterCondition;
+        copy.partitionDesc = PartitionDesc.getCopyOf(orig.getPartitionDesc());
         copy.capacity = orig.capacity;
         copy.computedColumnDescs = orig.computedColumnDescs;
-        if (orig.getPartitionDesc() != null) {
-            copy.partitionDesc = PartitionDesc.getCopyOf(orig.getPartitionDesc());
-        }
         copy.updateRandomUuid();
         return copy;
     }

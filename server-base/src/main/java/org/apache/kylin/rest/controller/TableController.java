@@ -31,7 +31,6 @@ import org.apache.kylin.rest.exception.InternalErrorException;
 import org.apache.kylin.rest.exception.NotFoundException;
 import org.apache.kylin.rest.request.CardinalityRequest;
 import org.apache.kylin.rest.request.HiveTableRequest;
-import org.apache.kylin.rest.service.TableACLService;
 import org.apache.kylin.rest.service.TableService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,10 +59,6 @@ public class TableController extends BasicController {
     @Autowired
     @Qualifier("tableService")
     private TableService tableService;
-
-    @Autowired
-    @Qualifier("TableAclService")
-    private TableACLService tableACLService;
 
     /**
      * Get available table list of the project
@@ -135,8 +130,7 @@ public class TableController extends BasicController {
         Map<String, String[]> result = new HashMap<String, String[]>();
         try {
             for (String tableName : tables.split(",")) {
-                tableACLService.deleteFromTableBlackListByTbl(project, tableName);
-                if (tableService.unloadHiveTable(tableName, project)) {
+                if (tableService.unLoadHiveTable(tableName, project)) {
                     unLoadSuccess.add(tableName);
                 } else {
                     unLoadFail.add(tableName);

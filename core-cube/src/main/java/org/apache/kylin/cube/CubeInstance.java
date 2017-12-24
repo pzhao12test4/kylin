@@ -19,6 +19,7 @@
 package org.apache.kylin.cube;
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -327,7 +328,7 @@ public class CubeInstance extends RootPersistentEntity implements IRealization, 
         this.createTimeUTC = createTimeUTC;
     }
 
-    public Map<Long, Long> getCuboids() {
+    Map<Long, Long> getCuboids() {
         if (cuboidBytes == null)
             return null;
         byte[] uncompressed;
@@ -343,7 +344,7 @@ public class CubeInstance extends RootPersistentEntity implements IRealization, 
         }
     }
 
-    public void setCuboids(Map<Long, Long> cuboids) {
+    void setCuboids(Map<Long, Long> cuboids) {
         if (cuboids == null)
             return;
         if (cuboids.isEmpty()) {
@@ -360,7 +361,7 @@ public class CubeInstance extends RootPersistentEntity implements IRealization, 
         }
     }
 
-    public Set<Long> getCuboidsRecommend() {
+    Set<Long> getCuboidsRecommend() {
         if (cuboidBytesRecommend == null)
             return null;
         byte[] uncompressed;
@@ -376,7 +377,7 @@ public class CubeInstance extends RootPersistentEntity implements IRealization, 
         }
     }
 
-    public void setCuboidsRecommend(Set<Long> cuboids) {
+    void setCuboidsRecommend(HashSet<Long> cuboids) {
         if (cuboids == null)
             return;
         if (cuboids.isEmpty()) {
@@ -403,6 +404,7 @@ public class CubeInstance extends RootPersistentEntity implements IRealization, 
     @Override
     public CapabilityResult isCapable(SQLDigest digest) {
         CapabilityResult result = CubeCapabilityChecker.check(this, digest);
+        result = localCapacityCheck(digest, result);
         if (result.capable) {
             result.cost = getCost(digest);
             for (CapabilityInfluence i : result.influences) {
@@ -412,6 +414,15 @@ public class CubeInstance extends RootPersistentEntity implements IRealization, 
             result.cost = -1;
         }
         return result;
+    }
+
+    private CapabilityResult localCapacityCheck(SQLDigest digest, CapabilityResult originResult) {
+        if (this.getDescriptor().getConfig().isDisableCubeNoAggSQL()) {
+            CapabilityResult notCap = new CapabilityResult();
+            notCap.capable = false;
+            return digest.aggregations.isEmpty() ? notCap : originResult ;
+        }
+        return originResult;
     }
 
     public int getCost(SQLDigest digest) {

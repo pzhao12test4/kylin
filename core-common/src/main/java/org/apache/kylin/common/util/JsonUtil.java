@@ -72,8 +72,7 @@ public class JsonUtil {
         return mapper.readValue(src, valueType);
     }
 
-    public static <T> T readValue(String content, TypeReference<T> valueTypeRef)
-            throws IOException, JsonParseException, JsonMappingException {
+    public static <T> T readValue(String content, TypeReference<T> valueTypeRef) throws IOException {
         return mapper.readValue(content, valueTypeRef);
     }
 

@@ -147,8 +147,6 @@ public class SegmentRange<T extends Comparable> implements Serializable {
             return new Comparator<Endpoint>() {
                 @Override
                 public int compare(Endpoint a, Endpoint b) {
-                    if (a == null || b == null)
-                        throw new IllegalStateException();
                     if (a.isMin) {
                         return b.isMin ? 0 : -1;
                     } else if (b.isMin) {
@@ -158,6 +156,9 @@ public class SegmentRange<T extends Comparable> implements Serializable {
                     } else if (b.isMax) {
                         return a.isMax ? 0 : -1;
                     } else {
+                        if (a == null || b == null)
+                            throw new IllegalStateException();
+
                         return valueComparator.compare(a.v, b.v);
                     }
                 }

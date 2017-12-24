@@ -21,8 +21,7 @@
         <li class="{{project.visiblePage=='cubes'? 'active':''}}">
             <a href="" ng-click="project.visiblePage='cubes';">Cubes</a>
         </li>
-        <li class="{{project.visiblePage=='access'? 'active':''}}"
-            ng-if="!kylinConfig.isExternalAclEnabled()">
+        <li class="{{project.visiblePage=='access'? 'active':''}}">
             <a href="" ng-click="project.visiblePage='access';listAccess(project, 'ProjectInstance');">Access</a>
         </li>
         <li class="{{project.visiblePage=='config'? 'active':''}}">

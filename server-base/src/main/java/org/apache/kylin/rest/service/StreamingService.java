@@ -67,7 +67,7 @@ public class StreamingService extends BasicService {
     }
 
     public StreamingConfig createStreamingConfig(StreamingConfig config, String project) throws IOException {
-        aclEvaluate.checkProjectAdminPermission(project);
+        aclEvaluate.checkProjectWritePermission(project);
         Message msg = MsgPicker.getMsg();
 
         if (getStreamingManager().getStreamingConfig(config.getName()) != null) {
@@ -78,12 +78,12 @@ public class StreamingService extends BasicService {
     }
 
     public StreamingConfig updateStreamingConfig(StreamingConfig config, String project) throws IOException {
-        aclEvaluate.checkProjectAdminPermission(project);
+        aclEvaluate.checkProjectWritePermission(project);
         return getStreamingManager().updateStreamingConfig(config);
     }
 
     public void dropStreamingConfig(StreamingConfig config, String project) throws IOException {
-        aclEvaluate.checkProjectAdminPermission(project);
+        aclEvaluate.checkProjectWritePermission(project);
         getStreamingManager().removeStreamingConfig(config);
     }
 
